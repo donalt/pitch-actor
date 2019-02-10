@@ -1,12 +1,18 @@
 import librosa as rosa
 import pyaudio
 import numpy as np
-#import matplotlib.pyplot as plt
+from struct import unpack
 
 class Audio():
-	def __init__(self, file_path, sr=5512):
+	def __init__(self, path=None, binary=None, sr=11025):
+		if path is not None:
+			self.y, _ = rosa.load(path, sr=sr)
+		elif binary is not None:
+			self.y = binwav2dec(binary)
+		else:
+			raise ValueError('path or binary needs to be set')
+
 		self.sr = sr
-		self.y, _ = rosa.load(file_path, sr=sr)
 		self.samples = self.y.size
 		self.duration = self.samples / self.sr # Length in seconds.
 
@@ -29,9 +35,9 @@ class Audio():
 			if (magnitude[t] < threshold):
 				pitch[t] = None
 
-		# plt.plot(pitch, 'r')
-		# plt.plot(magnitude, 'k')
-		# plt.plot([0, pitch.size], [threshold, threshold], 'b--')
-		# plt.tight_layout()
-		# plt.show()
 		return pitch, magnitude
+
+def binwav2dec(bin_data):
+	npts = int(len(bin_data)/2)
+	formatstr = '%ih' % npts
+	return np.array(unpack(formatstr, bin_data)) / 32768

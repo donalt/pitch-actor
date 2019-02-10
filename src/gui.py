@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 import numpy as np
+from tkinter import filedialog
 from tkinter import *
 import audio
 import pyaudio
 import wave
 import time
 
+# TODO: Put as much audio stuff as possible in separate file.
 class PitchGUI:
 	### Constants
 	CANVAS_W = 600
@@ -15,11 +17,11 @@ class PitchGUI:
 	PITCH_MIN_Y = 0
 
 	def __init__(self):
+		# Audio stuff
 		self.pyaudio = pyaudio.PyAudio()
 		self.wf = None
 		self.stream = None
 		self.start_ratio = 0
-		self.load_wav('../sound/test.wav')
 
 		self.root = Tk()
 		self.root.wm_title('PitchActor 0.0.1')
@@ -31,7 +33,7 @@ class PitchGUI:
 		menubar = Menu(window)
 
 		filemenu = Menu(menubar, tearoff=0)
-		filemenu.add_command(label='Testing', command=self.placeholder)
+		filemenu.add_command(label='Open wav...', command=self.open_wav_file)
 		
 		menubar.add_cascade(label='File', menu=filemenu)
 		self.root.config(menu=menubar)
@@ -42,16 +44,6 @@ class PitchGUI:
 		self.pitch_graph.bind('<Button-1>', self.click_playback_cursor)
 		self.pitch_graph.pack(side=TOP)
 
-		self.wav = audio.Audio('../sound/test.wav', 2000)
-		pitch, mag = self.wav.pitch_mag()
-
-		x = np.linspace(0, self.CANVAS_W, 200)
-		y = 50*np.sin(2*np.pi*x)+75
-
-		x = np.linspace(0, self.CANVAS_W, pitch.size)
-		y = pitch
-		self.draw_curve(self.pitch_graph, x, pitch)
-
 		# Vertical line used with audio playback.
 		self.cursor_line = self.pitch_graph.create_line(0,0,0,0)
 
@@ -60,7 +52,6 @@ class PitchGUI:
 		self.mag_graph = Canvas(self.root, width=self.CANVAS_W, height=self.CANVAS_H, bg='white')
 		self.mag_graph.pack(side=TOP)
 
-		self.draw_curve(self.mag_graph, x, mag)
 		self.threshold_line = self.mag_graph.create_line(0, 0, self.CANVAS_W, 0,
 		                                                 fill='#005b96', dash='-', width=2)
 		self.set_threshold(25)
@@ -81,6 +72,7 @@ class PitchGUI:
 		self.save_btn = Button(controls, text='Save', command=self.save_wav)
 		self.save_btn.pack(side=LEFT, ipady=10, ipadx=20)
 
+		#self.load_wav('../sound/test.wav') # TESTING
 		window.mainloop()
 
 	def draw_curve(self, canvas, x, y):
@@ -109,6 +101,14 @@ class PitchGUI:
 		self.move_cursor(0)
 		self.start_ratio = 0
 
+	def animate_cursor(self):
+		if self.stream.is_active():
+			x = self.CANVAS_W * ((time.clock() - self.play_t) / self.wav.duration + self.start_ratio)
+			self.move_cursor(x)
+			self.root.after(20, self.animate_cursor)
+		else:
+			self.move_cursor(self.start_ratio * self.CANVAS_W)
+
 	def set_threshold(self, value):
 		value = self.CANVAS_H - value
 		self.mag_graph.coords(self.threshold_line, [0, value, self.CANVAS_W, value])
@@ -116,7 +116,16 @@ class PitchGUI:
 	def load_wav(self, file_name):
 		if self.wf is not None:
 			self.wf.close()
-		self.wf = wave.open('../sound/test.wav', 'rb')
+		self.wf = wave.open(file_name, 'rb')
+
+		# Open non-binary wave file and get pitch and magnitude.
+		self.wav = audio.Audio(path=file_name, sr=11025)
+		self.pitch, self.mag = self.wav.pitch_mag()
+		self.wf.rewind()
+		# Draw the pitch and magnitude.
+		x = np.linspace(0, self.CANVAS_W, self.pitch.size)
+		self.draw_curve(self.pitch_graph, x, self.pitch)
+		self.draw_curve(self.mag_graph, x, self.mag)
 
 	def save_wav(self):
 		pass
@@ -142,14 +151,6 @@ class PitchGUI:
 		data = self.wf.readframes(frame_count)
 		return (data, pyaudio.paContinue)
 
-	def animate_cursor(self):
-		if self.stream.is_active():
-			x = self.CANVAS_W * ((time.clock() - self.play_t) / self.wav.duration + self.start_ratio)
-			self.move_cursor(x)
-			self.root.after(20, self.animate_cursor)
-		else:
-			self.move_cursor(self.start_ratio * self.CANVAS_W)
-
 	def record_wav(self):
 		pass
 
@@ -158,6 +159,12 @@ class PitchGUI:
 
 	def placeholder(self):
 		pass
+
+	########### Menu Options ############
+	def open_wav_file(self):
+		path = filedialog.askopenfilename(title='Select wav file', filetypes=(("wav file","*.wav"),))
+		if len(path) > 0:
+			self.load_wav(path)
 
 	########### Mouse Events ############
 	# Move cursor and stop audio if playing.
