@@ -16,12 +16,16 @@ class PitchGUI:
 	PITCH_MAX_Y = 150
 	PITCH_MIN_Y = 0
 
+	RECORD_RATE = 11025
+	TEMP_WAV = 'tmp.wav'
+
 	def __init__(self):
 		# Audio stuff
 		self.pyaudio = pyaudio.PyAudio()
 		self.wf = None
 		self.stream = None
 		self.start_ratio = 0
+		self.recording = False
 
 		self.root = Tk()
 		self.root.wm_title('PitchActor 0.0.1')
@@ -66,7 +70,7 @@ class PitchGUI:
 		self.play_btn = Button(controls, text='Play', command=self.play_wav)
 		self.play_btn.pack(side=LEFT, ipady=10, ipadx=20)
 
-		self.record_btn = Button(controls, text='Record', command=self.record_wav)
+		self.record_btn = Button(controls, text='Record', command=self.record_button)
 		self.record_btn.pack(side=LEFT, ipady=10, ipadx=20)
 
 		self.save_btn = Button(controls, text='Save', command=self.save_wav)
@@ -152,10 +156,24 @@ class PitchGUI:
 		return (data, pyaudio.paContinue)
 
 	def record_wav(self):
-		pass
+		if self.wf is not None:
+			self.wf.close()
+		self.wf = wave.open(self.TEMP_WAV, 'wb')
+		self.wf.setnchannels(1)
+		self.wf.setsampwidth(self.pyaudio.get_sample_size(pyaudio.paInt16))
+		self.wf.setframerate(self.RECORD_RATE)
 
-	def record_callback(self):
-		pass
+		self.stream = self.pyaudio.open(
+			rate=self.RECORD_RATE,
+			channels=1,
+			format=pyaudio.paInt16,
+			input=True,
+			stream_callback=self.record_callback
+		)
+
+	def record_callback(self, in_data, frame_count, time_info, status):
+		self.wf.writeframes(in_data)
+		return (None, pyaudio.paContinue)
 
 	def placeholder(self):
 		pass
@@ -165,6 +183,17 @@ class PitchGUI:
 		path = filedialog.askopenfilename(title='Select wav file', filetypes=(("wav file","*.wav"),))
 		if len(path) > 0:
 			self.load_wav(path)
+
+	###########    Buttons   ############
+	def record_button(self):
+		if self.recording:
+			self.stream.stop_stream()
+			self.stream.close()
+			self.load_wav(self.TEMP_WAV)
+			self.recording = False
+		else:
+			self.record_wav()
+			self.recording = True
 
 	########### Mouse Events ############
 	# Move cursor and stop audio if playing.
