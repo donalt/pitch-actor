@@ -1,6 +1,7 @@
 import librosa as rosa
 import numpy as np
 import matplotlib.pyplot as plt
+from gui import PitchGUI
 
 def dft(x):
 	# Indices and sizes.
@@ -137,4 +138,5 @@ def main():
 	plt.show()
 
 if __name__ == '__main__':
-	main()
+	#main()
+	PitchGUI()
