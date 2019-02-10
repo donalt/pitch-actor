@@ -1,4 +1,5 @@
 import librosa as rosa
+import pyaudio
 import numpy as np
 #import matplotlib.pyplot as plt
 

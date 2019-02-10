@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 from tkinter import *
-from audio import Audio
+import audio
+import pyaudio
+import wave
+import time # NOT NEEDED
 
 class PitchGUI:
 	### Constants
@@ -12,6 +15,11 @@ class PitchGUI:
 	PITCH_MIN_Y = 0
 
 	def __init__(self):
+		self.pyaudio = pyaudio.PyAudio()
+		self.wf = None
+		self.stream = None
+		self.load_wav('../sound/test.wav')
+
 		self.root = Tk()
 		self.root.wm_title('PitchActor 0.0.1')
 
@@ -32,7 +40,7 @@ class PitchGUI:
 		self.pitch_graph = Canvas(self.root, width=self.CANVAS_W, height=self.CANVAS_H, bg='white')
 		self.pitch_graph.pack(side=TOP)
 
-		a = Audio('../sound/test.wav', 5512)
+		a = audio.Audio('../sound/test.wav', 2000)
 		pitch, mag = a.pitch_mag()
 
 		x = np.linspace(0, self.CANVAS_W, 200)
@@ -56,10 +64,13 @@ class PitchGUI:
 		controls = Frame(window)
 		controls.pack(fill=X)
 
-		self.record_btn = Button(controls, text='Record', command=self.record)
+		self.play_btn = Button(controls, text='Play', command=self.play_wav)
+		self.play_btn.pack(side=LEFT, ipady=10, ipadx=20)
+
+		self.record_btn = Button(controls, text='Record', command=self.record_wav)
 		self.record_btn.pack(side=LEFT, ipady=10, ipadx=20)
 
-		self.save_btn = Button(controls, text='Save', command=self.save_audio)
+		self.save_btn = Button(controls, text='Save', command=self.save_wav)
 		self.save_btn.pack(side=LEFT, ipady=10, ipadx=20)
 
 		window.mainloop()
@@ -84,10 +95,37 @@ class PitchGUI:
 		value = self.CANVAS_H - value
 		self.mag_graph.coords(self.threshold_line, [0, value, self.CANVAS_W, value])
 
-	def record(self):
+	def load_wav(self, file_name):
+		if self.wf is not None:
+			self.wf.close()
+		self.wf = wave.open('../sound/test.wav', 'rb')
+
+	def save_wav(self):
 		pass
 
-	def save_audio(self):
+	def play_wav(self):
+		# Stop playback if there is one, and rewind the file.
+		if self.stream is not None:
+			self.stream.stop_stream()
+			self.stream.close()
+		self.wf.rewind()
+
+		self.stream = self.pyaudio.open(
+			rate=self.wf.getframerate(),
+			channels=1,
+			format=self.pyaudio.get_format_from_width(self.wf.getsampwidth()),
+			output=True,
+			stream_callback=self.play_callback
+		)
+
+	def play_callback(self, in_data, frame_count, time_info, status):
+		data = self.wf.readframes(frame_count)
+		return (data, pyaudio.paContinue)
+
+	def record_wav(self):
+		pass
+
+	def record_callback(self):
 		pass
 
 	def placeholder(self):
