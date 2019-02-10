@@ -18,6 +18,7 @@ class PitchGUI:
 		self.pyaudio = pyaudio.PyAudio()
 		self.wf = None
 		self.stream = None
+		self.start_ratio = 0
 		self.load_wav('../sound/test.wav')
 
 		self.root = Tk()
@@ -38,6 +39,7 @@ class PitchGUI:
 
 		#### pitch & volume graph ##################################################
 		self.pitch_graph = Canvas(self.root, width=self.CANVAS_W, height=self.CANVAS_H, bg='white')
+		self.pitch_graph.bind('<Button-1>', self.click_playback_cursor)
 		self.pitch_graph.pack(side=TOP)
 
 		self.wav = audio.Audio('../sound/test.wav', 2000)
@@ -52,7 +54,6 @@ class PitchGUI:
 
 		# Vertical line used with audio playback.
 		self.cursor_line = self.pitch_graph.create_line(0,0,0,0)
-		self.set_cursor(200)
 
 
 		#### magnitude & threshold graph ##################################################
@@ -67,6 +68,9 @@ class PitchGUI:
 		#### control panel ##################################################
 		controls = Frame(window)
 		controls.pack(fill=X)
+
+		self.rewind_btn = Button(controls, text='Rewind', command=self.reset_cursor)
+		self.rewind_btn.pack(side=LEFT, ipady=10, ipadx=20)
 
 		self.play_btn = Button(controls, text='Play', command=self.play_wav)
 		self.play_btn.pack(side=LEFT, ipady=10, ipadx=20)
@@ -95,10 +99,15 @@ class PitchGUI:
 			if np.all(np.isfinite(y[i:i+2])):
 				canvas.create_line(x[i], y[i], x[i+1], y[i+1], width=2)
 
-	def set_cursor(self, x=None):
-		if x is None:
-			x = self.CANVAS_W * (time.clock() - self.play_t) / self.wav.duration
+	def move_cursor(self, x):
 		self.pitch_graph.coords(self.cursor_line, [x, 0, x, self.CANVAS_H])
+		self.pitch_graph.update_idletasks()
+
+	def reset_cursor(self):
+		if self.stream and self.stream.is_active():
+				self.stream.stop_stream()
+		self.move_cursor(0)
+		self.start_ratio = 0
 
 	def set_threshold(self, value):
 		value = self.CANVAS_H - value
@@ -113,11 +122,11 @@ class PitchGUI:
 		pass
 
 	def play_wav(self):
-		# Stop playback if there is one, and rewind the file.
+		# Stop playback if there is one, and rewind to starting position.
 		if self.stream is not None:
 			self.stream.stop_stream()
 			self.stream.close()
-		self.wf.rewind()
+		self.wf.setpos(int(self.wf.getnframes() * self.start_ratio))
 
 		self.stream = self.pyaudio.open(
 			rate=self.wf.getframerate(),
@@ -135,11 +144,11 @@ class PitchGUI:
 
 	def animate_cursor(self):
 		if self.stream.is_active():
-			self.set_cursor()
+			x = self.CANVAS_W * ((time.clock() - self.play_t) / self.wav.duration + self.start_ratio)
+			self.move_cursor(x)
 			self.root.after(20, self.animate_cursor)
 		else:
-			self.stream.close()
-			self.set_cursor(0)
+			self.move_cursor(self.start_ratio * self.CANVAS_W)
 
 	def record_wav(self):
 		pass
@@ -149,3 +158,13 @@ class PitchGUI:
 
 	def placeholder(self):
 		pass
+
+	########### Mouse Events ############
+	# Move cursor and stop audio if playing.
+	def click_playback_cursor(self, event):
+		if self.wf is not None:
+			if self.stream and self.stream.is_active():
+				self.stream.stop_stream()
+
+			self.move_cursor(event.x)
+			self.start_ratio = event.x / self.CANVAS_W
