@@ -4,7 +4,7 @@ from tkinter import *
 import audio
 import pyaudio
 import wave
-import time # NOT NEEDED
+import time
 
 class PitchGUI:
 	### Constants
@@ -40,8 +40,8 @@ class PitchGUI:
 		self.pitch_graph = Canvas(self.root, width=self.CANVAS_W, height=self.CANVAS_H, bg='white')
 		self.pitch_graph.pack(side=TOP)
 
-		a = audio.Audio('../sound/test.wav', 2000)
-		pitch, mag = a.pitch_mag()
+		self.wav = audio.Audio('../sound/test.wav', 2000)
+		pitch, mag = self.wav.pitch_mag()
 
 		x = np.linspace(0, self.CANVAS_W, 200)
 		y = 50*np.sin(2*np.pi*x)+75
@@ -49,6 +49,10 @@ class PitchGUI:
 		x = np.linspace(0, self.CANVAS_W, pitch.size)
 		y = pitch
 		self.draw_curve(self.pitch_graph, x, pitch)
+
+		# Vertical line used with audio playback.
+		self.cursor_line = self.pitch_graph.create_line(0,0,0,0)
+		self.set_cursor(200)
 
 
 		#### magnitude & threshold graph ##################################################
@@ -91,6 +95,11 @@ class PitchGUI:
 			if np.all(np.isfinite(y[i:i+2])):
 				canvas.create_line(x[i], y[i], x[i+1], y[i+1], width=2)
 
+	def set_cursor(self, x=None):
+		if x is None:
+			x = self.CANVAS_W * (time.clock() - self.play_t) / self.wav.duration
+		self.pitch_graph.coords(self.cursor_line, [x, 0, x, self.CANVAS_H])
+
 	def set_threshold(self, value):
 		value = self.CANVAS_H - value
 		self.mag_graph.coords(self.threshold_line, [0, value, self.CANVAS_W, value])
@@ -117,10 +126,20 @@ class PitchGUI:
 			output=True,
 			stream_callback=self.play_callback
 		)
+		self.root.after(0, self.animate_cursor)
+		self.play_t = time.clock()
 
 	def play_callback(self, in_data, frame_count, time_info, status):
 		data = self.wf.readframes(frame_count)
 		return (data, pyaudio.paContinue)
+
+	def animate_cursor(self):
+		if self.stream.is_active():
+			self.set_cursor()
+			self.root.after(20, self.animate_cursor)
+		else:
+			self.stream.close()
+			self.set_cursor(0)
 
 	def record_wav(self):
 		pass
