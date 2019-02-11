@@ -34,22 +34,19 @@ class PitchGUI:
 
 
 		#### pitch & volume graph ##################################################
-		self.pitch_graph = Canvas(self.root, width=self.CANVAS_W, height=self.CANVAS_H, bg='white')
-		self.pitch_graph.bind('<Button-1>', self.click_playback_cursor)
-		self.pitch_graph.pack(side=TOP)
+		self.graph = Canvas(self.root, width=self.CANVAS_W, height=self.CANVAS_H, bg='white')
+		self.graph.bind('<Button-1>', self.click_playback_cursor)
+		self.graph.pack(side=TOP)
 
 		# Vertical line used with audio playback.
-		self.cursor_line = self.pitch_graph.create_line(0,0,0,0, fill='red')
-		self.cursor_start_line  = self.pitch_graph.create_line(0,0,0,0)
+		self.cursor_line = self.graph.create_line(0,0,0,0, fill='red')
+		self.cursor_start_line  = self.graph.create_line(0,0,0,0)
 
-
-		#### magnitude & threshold graph ##################################################
-		self.mag_graph = Canvas(self.root, width=self.CANVAS_W, height=self.CANVAS_H, bg='white')
-		self.mag_graph.pack(side=TOP)
-
-		self.threshold_line = self.mag_graph.create_line(0, 0, self.CANVAS_W, 0,
-		                                                 fill='#005b96', dash='-', width=2)
+		# Horizontal threshold line.
+		self.threshold_line = self.graph.create_line(0, 0, self.CANVAS_W, 0,
+		                                            fill='#005b96', dash='-', width=2)
 		self.set_threshold(self.audio.threshold)
+
 
 		#### control panel ##################################################
 		controls = Frame(window)
@@ -73,7 +70,7 @@ class PitchGUI:
 		self.audio.load_wav('../sound/test.wav') # TESTING
 		window.mainloop()
 
-	def draw_curve(self, canvas, x, y, tag):
+	def draw_curve(self, canvas, x, y, tag, color='#000'):
 		if x.size != y.size:
 			raise ValueError('x and y must have same dimensions')
 		# Polygon gives error
@@ -87,23 +84,21 @@ class PitchGUI:
 		y = self.PITCH_MAX_Y - y
 		for i in range(y.size - 1):
 			if np.all(np.isfinite(y[i:i+2])):
-				canvas.create_line(x[i], y[i], x[i+1], y[i+1], width=2, tags=tag)
+				canvas.create_line(x[i], y[i], x[i+1], y[i+1], width=2, tags=tag, fill=color)
 
 	def draw_pitch(self, pitch):
-		self.pitch_graph.delete('p')
-		self.mag_graph.delete('m')
+		self.graph.delete('p')
 		x = np.linspace(0, self.CANVAS_W, pitch.size)
-		self.draw_curve(self.pitch_graph, x, pitch, 'p')
-		#self.draw_curve(self.mag_graph, x, mag, 'm')
+		self.draw_curve(self.graph, x, pitch, 'p', color='red')
 
 	def draw_volume(self, vol):
-		self.mag_graph.delete('v')
+		self.graph.delete('v')
 		x = np.linspace(0, self.CANVAS_W, vol.size)
-		self.draw_curve(self.mag_graph, x, vol * 150, 'v')
+		self.draw_curve(self.graph, x, vol * 150, 'v')
 
 	def move_cursor(self, cursor, x):
-		self.pitch_graph.coords(cursor, [x, 0, x, self.CANVAS_H])
-		self.pitch_graph.update_idletasks()
+		self.graph.coords(cursor, [x, 0, x, self.CANVAS_H])
+		self.graph.update_idletasks()
 
 	def play_callback(self):
 		if self.audio.playing():
@@ -116,7 +111,7 @@ class PitchGUI:
 
 	def set_threshold(self, value):
 		value = self.CANVAS_H - (value * 150)
-		self.mag_graph.coords(self.threshold_line, [0, value, self.CANVAS_W, value])
+		self.graph.coords(self.threshold_line, [0, value, self.CANVAS_W, value])
 
 	def save_wav(self):
 		pass
