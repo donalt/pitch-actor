@@ -49,7 +49,8 @@ class PitchGUI:
 		self.pitch_graph.pack(side=TOP)
 
 		# Vertical line used with audio playback.
-		self.cursor_line = self.pitch_graph.create_line(0,0,0,0)
+		self.cursor_line = self.pitch_graph.create_line(0,0,0,0, fill='red')
+		self.cursor_start_line  = self.pitch_graph.create_line(0,0,0,0)
 
 
 		#### magnitude & threshold graph ##################################################
@@ -64,7 +65,7 @@ class PitchGUI:
 		controls = Frame(window)
 		controls.pack(fill=X)
 
-		self.rewind_btn = Button(controls, text='Rewind', command=self.reset_cursor)
+		self.rewind_btn = Button(controls, text='Rewind', command=self.rewind_button)
 		self.rewind_btn.pack(side=LEFT, ipady=10, ipadx=20)
 
 		self.play_btn = Button(controls, text='Play', command=self.play_wav)
@@ -76,7 +77,7 @@ class PitchGUI:
 		self.save_btn = Button(controls, text='Save', command=self.save_wav)
 		self.save_btn.pack(side=LEFT, ipady=10, ipadx=20)
 
-		#self.load_wav('../sound/test.wav') # TESTING
+		self.load_wav('../sound/test.wav') # TESTING
 		window.mainloop()
 
 	def draw_curve(self, canvas, x, y):
@@ -95,23 +96,17 @@ class PitchGUI:
 			if np.all(np.isfinite(y[i:i+2])):
 				canvas.create_line(x[i], y[i], x[i+1], y[i+1], width=2)
 
-	def move_cursor(self, x):
-		self.pitch_graph.coords(self.cursor_line, [x, 0, x, self.CANVAS_H])
+	def move_cursor(self, cursor, x):
+		self.pitch_graph.coords(cursor, [x, 0, x, self.CANVAS_H])
 		self.pitch_graph.update_idletasks()
-
-	def reset_cursor(self):
-		if self.stream and self.stream.is_active():
-				self.stream.stop_stream()
-		self.move_cursor(0)
-		self.start_ratio = 0
 
 	def animate_cursor(self):
 		if self.stream.is_active():
 			x = self.CANVAS_W * ((time.clock() - self.play_t) / self.wav.duration + self.start_ratio)
-			self.move_cursor(x)
+			self.move_cursor(self.cursor_line, x)
 			self.root.after(20, self.animate_cursor)
 		else:
-			self.move_cursor(self.start_ratio * self.CANVAS_W)
+			self.move_cursor(self.cursor_line, 0)
 
 	def set_threshold(self, value):
 		value = self.CANVAS_H - value
@@ -195,6 +190,13 @@ class PitchGUI:
 			self.record_wav()
 			self.recording = True
 
+	def rewind_button(self):
+		if self.stream and self.stream.is_active():
+				self.stream.stop_stream()
+		self.move_cursor(self.cursor_line, 0)
+		self.move_cursor(self.cursor_start_line, 0)
+		self.start_ratio = 0
+
 	########### Mouse Events ############
 	# Move cursor and stop audio if playing.
 	def click_playback_cursor(self, event):
@@ -202,5 +204,5 @@ class PitchGUI:
 			if self.stream and self.stream.is_active():
 				self.stream.stop_stream()
 
-			self.move_cursor(event.x)
+			self.move_cursor(self.cursor_start_line, event.x)
 			self.start_ratio = event.x / self.CANVAS_W
