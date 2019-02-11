@@ -8,25 +8,31 @@ from struct import unpack
 class Audio():
 	RECORD_RATE = 11025
 	TEMP_WAV = 'tmp.wav'
+
+	FRAME_LEN = 1024
+	HOP_LEN = 512
 	CURSOR_OFFSET = 0.1 # How many seconds to delay the playback cursor.
+	THRESHOLD = 0.1 # Threshold for voice on/off
 
 	def __init__(self, gui):
 		self.gui = gui
 		self.pyaudio = pyaudio.PyAudio()
 		self.wf = None     # The loaded binary .wav file.
+		self.y = None      # wav file in floats.
 		self.stream = None # Stream used when playing and recording wav.
 		self.start_ratio = 0 # [0,1] from where to start playback.
+		self.threshold = self.THRESHOLD
 		self._recording = False
 
-	def _load_audio(self, path=None, binary=None, sr=11025):
+	def _load_audio(self, path=None, binary=None):
 		if path is not None:
-			self.y, _ = rosa.load(path, sr=sr)
+			self.y, _ = rosa.load(path, sr=self.RECORD_RATE)
 		elif binary is not None:
 			self.y = binwav2dec(binary)
 		else:
 			raise ValueError('path or binary needs to be set')
 
-		self.sr = sr
+		self.sr = self.RECORD_RATE
 		self.samples = self.y.size
 		self.duration = self.samples / self.sr # Length in seconds.
 
@@ -34,11 +40,20 @@ class Audio():
 		if self.wf is not None:
 			self.wf.close()
 		self.wf = wave.open(file_name, 'rb')
-		# Open non-binary wave file and get pitch and magnitude.
-		self._load_audio(path=file_name, sr=11025)
-		self.pitch, self.mag = self.pitch_mag()
+		# Open non-binary wave file.
+		self._load_audio(path=file_name)
+		#S, _ = rosa.magphase(rosa.stft(self.y, self.FRAME_LEN, self.HOP_LEN))
+		# Get the RMS (volume).
+		self.vol = rosa.feature.rmse(y=self.y, frame_length=self.FRAME_LEN, hop_length=self.HOP_LEN).flatten()
+		# Get pitch.
+		self.pitch = self.calc_pitch()
+
+		if self.vol.size != self.pitch.size:
+			self.vol = self.vol[1:]
+
 		self.wf.rewind()
-		self.gui.draw_pitch_mag(self.pitch, self.mag)
+		self.gui.draw_pitch(self.gated_pitch())
+		self.gui.draw_volume(self.vol)
 
 	def play(self):
 		# Stop playback if there is one, and rewind to starting position.
@@ -95,26 +110,29 @@ class Audio():
 		self.start_ratio = 0
 		self.stop()
 
-	def pitch_mag(self, n_fft=1024, hop_length=256, fmin=20, fmax=300, threshold=25):
-		self.threshold = threshold
-		windows = int(np.ceil(self.samples / hop_length))
-		window_time = n_fft / self.sr
-		t_between_samples = hop_length / self.sr
+	def calc_pitch(self, fmin=20, fmax=300):
+		windows = int(np.ceil(self.samples / self.HOP_LEN))
+		#window_time = self.FRAME_LEN / self.sr
+		#t_between_samples = self.HOP_LEN / self.sr
 
 		# TODO: get S from rosa.stft() first.
-		pitches, mag = rosa.piptrack(self.y, self.sr, None, n_fft, hop_length, fmin, fmax)
+		pitches, mag = rosa.piptrack(self.y, self.sr, None, self.FRAME_LEN, self.HOP_LEN, fmin, fmax)
 
 		pitch = np.empty(windows)
-		magnitude = np.empty(windows)
+		#magnitude = np.empty(windows)
 		for t in range(windows):
 			max_i = mag[:, t].argmax()
-			magnitude[t] = mag[max_i, t]
+			#magnitude[t] = mag[max_i, t]
 			pitch[t] = pitches[max_i, t]
+			#if (magnitude[t] < threshold):
+			#	pitch[t] = None
+		return pitch
 
-			if (magnitude[t] < threshold):
-				pitch[t] = None
-
-		return pitch, magnitude
+	# Return pitch after applying threshold.
+	def gated_pitch(self):
+		pitch = np.copy(self.pitch)
+		pitch[self.vol < self.threshold] = None
+		return pitch
 
 	#### Getters ####
 	def loaded(self):
