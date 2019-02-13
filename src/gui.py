@@ -88,10 +88,11 @@ class PitchGUI:
 		y = self.CANVAS_H - y * (self.CANVAS_H / self.max_pitch)
 		max_y = self.CANVAS_H
 		for i in range(y.size - 1):
-			if y[i] < max_y and y[i+1] < max_y:
+			if y[i] <= max_y and y[i+1] <= max_y:
 				canvas.create_line(x[i], y[i], x[i+1], y[i+1], width=2, tags=tag, fill=color)
 
 	def draw_pitch(self, pitch):
+		print(pitch, flush=1)
 		self.max_pitch = np.max(pitch) + self.PITCH_Y_PAD
 		self.graph.delete('p')
 		x = np.linspace(0, self.CANVAS_W, pitch.size)
@@ -159,6 +160,7 @@ class PitchGUI:
 			self.audio.stop_recording()
 			self.play_btn.config(state=NORMAL)
 			self.rewind_btn.config(state=NORMAL)
+			self.rewind_button()
 		else:
 			self.audio.start_recording()
 			self.play_btn.config(state=DISABLED)

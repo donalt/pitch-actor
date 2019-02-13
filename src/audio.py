@@ -78,6 +78,7 @@ class Audio():
 	def stop_recording(self):
 		self.stream.stop_stream()
 		self.stream.close()
+		self.stream = None
 		self.load_wav(self.TEMP_WAV)
 		self._recording = False
 
