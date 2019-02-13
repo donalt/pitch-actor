@@ -10,10 +10,10 @@ import shutil # Copy files
 class PitchGUI:
 	### Constants
 	CANVAS_W = 600
-	CANVAS_H = 150
+	CANVAS_H = 200
 
-	PITCH_MAX_Y = 150
 	PITCH_MIN_Y = 0
+	PITCH_Y_PAD = 10 # Extra headroom
 
 	def __init__(self):
 		self.audio = audio.Audio(self)
@@ -71,6 +71,7 @@ class PitchGUI:
 		self.audio.load_wav('../sound/test.wav') # TESTING
 		window.mainloop()
 
+	# Note, visible range is [2, CANVAS_H]
 	def draw_curve(self, canvas, x, y, tag, color='#000'):
 		if x.size != y.size:
 			raise ValueError('x and y must have same dimensions')
@@ -82,12 +83,16 @@ class PitchGUI:
 		#print(xy.shape)
 		#canvas.create_polygon(xy)
 		# Manually draw each line instead.
-		y = self.PITCH_MAX_Y - y
+		
+		# Scale to fit and invert.
+		y = self.CANVAS_H - y * (self.CANVAS_H / self.max_pitch)
+		max_y = self.CANVAS_H
 		for i in range(y.size - 1):
-			if np.all(np.isfinite(y[i:i+2])):
+			if y[i] < max_y and y[i+1] < max_y:
 				canvas.create_line(x[i], y[i], x[i+1], y[i+1], width=2, tags=tag, fill=color)
 
 	def draw_pitch(self, pitch):
+		self.max_pitch = np.max(pitch) + self.PITCH_Y_PAD
 		self.graph.delete('p')
 		x = np.linspace(0, self.CANVAS_W, pitch.size)
 		self.draw_curve(self.graph, x, pitch, 'p', color='red')

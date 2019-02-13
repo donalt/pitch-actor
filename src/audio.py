@@ -131,7 +131,7 @@ class Audio():
 	# Return pitch after applying threshold.
 	def gated_pitch(self):
 		pitch = np.copy(self.pitch)
-		pitch[self.vol < self.threshold] = None
+		pitch[self.vol < self.threshold] = -1
 		return pitch
 
 	#### Getters ####
