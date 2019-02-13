@@ -52,8 +52,7 @@ class Audio():
 			self.vol = self.vol[1:]
 
 		self.wf.rewind()
-		self.gui.draw_pitch(self.gated_pitch())
-		self.gui.draw_volume(self.vol)
+		self.gui.draw_graph(self.gated_pitch(), self.vol)
 
 	def play(self):
 		# Stop playback if there is one, and rewind to starting position.
