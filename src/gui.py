@@ -4,6 +4,7 @@ from tkinter import filedialog
 from tkinter import *
 import audio
 import time
+import shutil # Copy files
 
 # TODO: Put as much audio stuff as possible in separate file.
 class PitchGUI:
@@ -64,7 +65,7 @@ class PitchGUI:
 		self.record_btn = Button(controls, text='Record', command=self.record_button)
 		self.record_btn.pack(side=LEFT, ipady=10, ipadx=20)
 
-		self.save_btn = Button(controls, text='Save', command=self.save_wav)
+		self.save_btn = Button(controls, text='Save', command=self.save_wav_file)
 		self.save_btn.pack(side=LEFT, ipady=10, ipadx=20)
 
 		self.audio.load_wav('../sound/test.wav') # TESTING
@@ -121,6 +122,13 @@ class PitchGUI:
 		path = filedialog.askopenfilename(title='Select wav file', filetypes=(("wav file","*.wav"),))
 		if len(path) > 0:
 			self.audio.load_wav(path)
+
+	def save_wav_file(self):
+		path = filedialog.asksaveasfilename(title='Save audio clip as', filetypes=(("wav file","*.wav"),))
+		if len(path) > 0:
+			if path[-4:] != '.wav':
+				path += '.wav'
+			shutil.copy2(self.audio.TEMP_WAV, path)
 
 	###########    Buttons   ############
 	def rewind_button(self):
