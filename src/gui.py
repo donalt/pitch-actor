@@ -41,7 +41,12 @@ class PitchGUI:
 		#### pitch & volume graph ##################################################
 		yaxis_graph = Frame(self.root)
 		self.graph = Canvas(yaxis_graph, width=GRAPH_W+1, height=GRAPH_H, bg='white', highlightthickness=0)
-		self.graph.bind('<Button-1>', self.click_playback_cursor)
+		#self.graph.bind('<Button-1>', self.click_playback_cursor)
+		self.graph.bind('<Button-1>', self.mouse1_on_graph)
+		self.graph.bind('<B1-Motion>', self.mouse1_on_graph)
+		self.graph.bind('<Button-3>', self.mouse3_on_graph)
+		self.graph.bind('<B3-Motion>', self.mouse3_on_graph)
+
 		# Vertical line used with audio playback.
 		self.cursor_line = self.graph.create_line(0,0,0,0, fill='red')
 		self.cursor_start_line  = self.graph.create_line(0,0,0,0)
@@ -50,13 +55,13 @@ class PitchGUI:
 		                                            fill='#005b96', dash='-', width=2)
 		self.set_threshold(self.audio.threshold)
 		# Border (xaxis canvas is used for lower line)
-		self.graph.create_line(0, 0, 0, GRAPH_H)
-		self.graph.create_line(GRAPH_W, 0, GRAPH_W, GRAPH_H)
-		self.graph.create_line(0, 0, GRAPH_W, 0)
+		self.graph.create_line(0, 0, 0, GRAPH_H)             # left y
+		self.graph.create_line(GRAPH_W, 0, GRAPH_W, GRAPH_H) # right y
+		self.graph.create_line(0, 0, GRAPH_W, 0)             # top y
 
 		self.yaxis = Canvas(yaxis_graph, width=Y_WIDTH, height=GRAPH_H+Y_TOP, highlightthickness=0)
 		self.xaxis = Canvas(self.root, width=Y_WIDTH+GRAPH_W+X_RIGHT, height=X_HEIGHT, highlightthickness=0)
-		self.xaxis.create_line(Y_WIDTH,0, GRAPH_W+Y_WIDTH, 0) # Lower border.
+		self.xaxis.create_line(Y_WIDTH,0, GRAPH_W+Y_WIDTH, 0) # low y
 		self.yaxis.pack(side=LEFT)
 		self.graph.pack(side=LEFT, padx=(0, X_RIGHT), pady=(Y_TOP, 0))
 		yaxis_graph.pack()
@@ -82,7 +87,7 @@ class PitchGUI:
 		self.audio.load_wav('../sound/test.wav') # TESTING
 		window.mainloop()
 
-	def draw_curve(self, canvas, x, y, tag, color='#000'):
+	def draw_curve(self, x, y, tag, color='#000'):
 		if x.size != y.size:
 			raise ValueError('x and y must have same dimensions')
 		# Polygon gives error
@@ -99,7 +104,29 @@ class PitchGUI:
 		y_lim = GRAPH_H
 		for i in range(y.size - 1):
 			if y[i] <= y_lim and y[i+1] <= y_lim:
-				canvas.create_line(x[i], y[i], x[i+1], y[i+1], width=2, tags=tag, fill=color)
+				self.graph.create_line(x[i], y[i], x[i+1], y[i+1], width=2, tags=tag, fill=color)
+
+	def alter_curve(self, x, y, tag):
+		tag = (tag,) # gettags() returns a tuple of tags
+		x = max(0, min(x, GRAPH_W))
+		y = max(0, min(y, GRAPH_H))
+		frame = int((x/GRAPH_W) * (self.max_x))
+		if frame == self.max_x:
+			frame -= 1
+
+		frame_x = (frame / (self.max_x - 1)) * GRAPH_W
+		items = self.graph.find_overlapping(frame_x-1,-1, frame_x+1,GRAPH_H+1)
+		
+		for i in items:
+			# Find pitch lines.
+			if self.graph.gettags(i) == tag:
+				c = self.graph.coords(i)
+				# Update first or second point.
+				if abs(c[0] - frame_x) < 0.05:
+					c[1] = y
+				else:
+					c[3] = y
+				self.graph.coords(i, c)
 
 	def draw_graph(self, pitch, vol):
 		self.max_x = pitch.size
@@ -111,12 +138,12 @@ class PitchGUI:
 		self.max_y = np.max(pitch) + PITCH_Y_PAD
 		self.graph.delete('p')
 		x = np.linspace(0, GRAPH_W, pitch.size)
-		self.draw_curve(self.graph, x, pitch, 'p', color='red')
+		self.draw_curve(x, pitch, 'p', color='red')
 
 	def draw_volume(self, vol):
 		self.graph.delete('v')
 		x = np.linspace(0, GRAPH_W, vol.size)
-		self.draw_curve(self.graph, x, vol * 150, 'v')
+		self.draw_curve(x, vol * 150, 'v')
 
 	def draw_axes(self):
 		self.xaxis.delete('v')
@@ -201,3 +228,9 @@ class PitchGUI:
 			self.audio.stop()
 			self.audio.set_start(event.x / GRAPH_W)
 			self.move_cursor(self.cursor_start_line, event.x)
+
+	def mouse1_on_graph(self, event):
+		self.alter_curve(event.x, event.y, 'p')
+
+	def mouse3_on_graph(self, event):
+		self.alter_curve(event.x, event.y, 'v')
