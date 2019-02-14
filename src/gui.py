@@ -26,7 +26,7 @@ class PitchGUI:
 		self.root.wm_title('PitchActor 0.0.1')
 
 		window = Frame(self.root)
-		window.pack(padx=12, pady=(10,20))
+		window.pack(expand=1)
 
 		#### toplevel menu ##################################################
 		menubar = Menu(window)
@@ -38,8 +38,27 @@ class PitchGUI:
 		self.root.config(menu=menubar)
 
 
+		#### control panel ##################################################
+		controls = Frame(window, bg='red')
+		controls.pack()
+
+		self.stop_btn = Button(controls, text='Stop', command=self.stop_button)
+		self.play_btn = Button(controls, text='Play', command=self.play_button)
+		self.rewind_btn = Button(controls, text='Rewind', command=self.rewind_button)
+		self.record_btn = Button(controls, text='Record', command=self.record_button)
+		self.save_btn = Button(controls, text='Save', command=self.save_wav_file)
+
+		self.stop_btn.pack(side=LEFT, ipady=10, ipadx=20)
+		self.play_btn.pack(side=LEFT, ipady=10, ipadx=20)
+		self.rewind_btn.pack(side=LEFT, ipady=10, ipadx=20)
+		self.record_btn.pack(side=LEFT, ipady=10, ipadx=20)
+		self.save_btn.pack(side=LEFT, ipady=10, ipadx=20)
+
+
 		#### pitch & volume graph ##################################################
-		yaxis_graph = Frame(self.root)
+		graph_frame = Frame(window)
+		graph_frame.pack()
+		yaxis_graph = Frame(graph_frame)
 		self.graph = Canvas(yaxis_graph, width=GRAPH_W+1, height=GRAPH_H, bg='white', highlightthickness=0)
 		#self.graph.bind('<Button-1>', self.click_playback_cursor)
 		self.graph.bind('<Button-1>', self.mouse1_on_graph)
@@ -60,7 +79,7 @@ class PitchGUI:
 		self.graph.create_line(0, 0, GRAPH_W, 0)             # top y
 
 		self.yaxis = Canvas(yaxis_graph, width=Y_WIDTH, height=GRAPH_H+Y_TOP, highlightthickness=0)
-		self.xaxis = Canvas(self.root, width=Y_WIDTH+GRAPH_W+X_RIGHT, height=X_HEIGHT, highlightthickness=0)
+		self.xaxis = Canvas(graph_frame, width=Y_WIDTH+GRAPH_W+X_RIGHT, height=X_HEIGHT, highlightthickness=0)
 		self.xaxis.create_line(Y_WIDTH,0, GRAPH_W+Y_WIDTH, 0) # low y
 		self.yaxis.pack(side=LEFT)
 		self.graph.pack(side=LEFT, padx=(0, X_RIGHT), pady=(Y_TOP, 0))
@@ -68,21 +87,21 @@ class PitchGUI:
 		self.xaxis.pack()
 		
 
-		#### control panel ##################################################
-		controls = Frame(window)
-		controls.pack(fill=X)
+		#### dubbing move controls ##################################################
+		dubbing = Frame(window)
+		dubbing.pack()
 
-		self.stop_btn = Button(controls, text='Stop', command=self.stop_button)
-		self.play_btn = Button(controls, text='Play', command=self.play_button)
-		self.rewind_btn = Button(controls, text='Rewind', command=self.rewind_button)
-		self.record_btn = Button(controls, text='Record', command=self.record_button)
-		self.save_btn = Button(controls, text='Save', command=self.save_wav_file)
+		prev_ln_btn = Button(dubbing, text='Prev', command=self.prev_line)
+		next_ln_btn = Button(dubbing, text='Next', command=self.next_line)
+		prev_char_btn = Button(dubbing, text='PrevChar', command=self.prev_charline)
+		next_char_btn = Button(dubbing, text='NextChar', command=self.next_charline)
+		self.line_entry = Entry(dubbing, width=3, validate='key', vcmd=(dubbing.register(self.valid_line_entry),'%d','%s','%S'))
 
-		self.stop_btn.pack(side=LEFT, ipady=10, ipadx=20)
-		self.play_btn.pack(side=LEFT, ipady=10, ipadx=20)
-		self.rewind_btn.pack(side=LEFT, ipady=10, ipadx=20)
-		self.record_btn.pack(side=LEFT, ipady=10, ipadx=20)
-		self.save_btn.pack(side=LEFT, ipady=10, ipadx=20)
+		prev_ln_btn.pack(side=LEFT, ipady=10, ipadx=20)
+		next_ln_btn.pack(side=LEFT, ipady=10, ipadx=20)
+		prev_char_btn.pack(side=LEFT, ipady=10, ipadx=20)
+		next_char_btn.pack(side=LEFT, ipady=10, ipadx=20)
+		self.line_entry.pack(side=LEFT)
 
 		self.audio.load_wav('../sound/test.wav') # TESTING
 		window.mainloop()
@@ -90,15 +109,6 @@ class PitchGUI:
 	def draw_curve(self, x, y, tag, color='#000'):
 		if x.size != y.size:
 			raise ValueError('x and y must have same dimensions')
-		# Polygon gives error
-		#xy = np.empty(x.size, dtype=tuple)
-		#xy[0::2] = x
-		#xy[1::2] = y
-		#xy = np.vstack((x, y)).T
-		#print(xy.shape)
-		#canvas.create_polygon(xy)
-		# Manually draw each line instead.
-		
 		# Scale to fit and invert.
 		y = GRAPH_H - y * (GRAPH_H / self.max_y)
 		y_lim = GRAPH_H
@@ -220,6 +230,26 @@ class PitchGUI:
 			self.audio.start_recording()
 			self.play_btn.config(state=DISABLED)
 			self.rewind_btn.config(state=DISABLED)
+
+	def prev_line(self):
+		pass
+
+	def next_line(self):
+		pass
+
+	def prev_charline(self):
+		pass
+
+	def next_charline(self):
+		pass
+
+	def valid_line_entry(self, inserting, oldstr, new):
+		if inserting != '1': # Don't validate deletion.
+			return True
+		# len <= 3 and no starting with 0.
+		if (len(oldstr) + len(new)) > 3 or (oldstr=='' and new[0]=='0'):
+			return False
+		return True
 
 	########### Mouse Events ############
 	# Move cursor and stop audio if playing.
