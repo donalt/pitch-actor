@@ -1,12 +1,15 @@
 import numpy as np
 import librosa as rosa
 import pyaudio
+import soundfile as sf
 import wave
 import time
+import math
 from struct import unpack, pack
 
 class Audio():
 	RECORD_RATE = 11025
+	
 	TEMP_WAV = 'tmp.wav'
 
 	FRAME_LEN = 1024
@@ -25,14 +28,18 @@ class Audio():
 		self._recording = False
 		self.pitch_shift = 12
 
+		sine, sr = sf.read('../sound/sine220.wav', dtype='float32')
+		pitch = np.linspace(440, 880, 60)
+		vol = np.ones(60) * 0.2
+		y = build_voiceline(sine, 220, sr, pitch, vol, 30, self.RECORD_RATE)
+		self.save_wav(y, 'voiceline.wav', self.RECORD_RATE)
+		exit()
+
 	def _load_audio(self, path=None, binary=None):
 		if path is not None:
 			self.y, _ = rosa.load(path, sr=self.RECORD_RATE)
 		elif binary is not None:
-			print(binary)
 			self.y = bin2dec(binary)
-			self.y = dec2bin(self.y)
-			self.y = bin2dec(self.y)
 		else:
 			raise ValueError('path or binary needs to be set')
 
@@ -57,18 +64,15 @@ class Audio():
 		self.wf.rewind()
 		self.gui.draw_graph(self.gated_pitch(), self.vol)
 
-	def play(self):
-		# Shift the pitch of the whole wav file and play it.
-		# data = shift_pitch(self.y, self.RECORD_RATE, self.pitch_shift)
-		# self.wf.close()
-		# self.wf = wave.open('pitchtest.wav', 'wb')
-		# self.wf.setnchannels(1)
-		# self.wf.setsampwidth(self.pyaudio.get_sample_size(pyaudio.paInt16))
-		# self.wf.setframerate(self.RECORD_RATE)
-		# self.wf.writeframes(dec2bin(data))
-		# self.wf.close()
-		# self.wf = wave.open('pitchtest.wav', 'rb')
+	def save_wav(self, y, path, sr):
+		wf = wave.open(path, 'wb')
+		wf.setnchannels(1)
+		wf.setsampwidth(self.pyaudio.get_sample_size(pyaudio.paInt16))
+		wf.setframerate(sr)
+		wf.writeframes(dec2bin(y))
+		wf.close()
 
+	def play(self):
 		# Stop playback if there is one, and rewind to starting position.
 		if self.stream is not None:
 			self.stream.stop_stream()
@@ -177,9 +181,63 @@ def dec2bin(dec_data):
 	formatstr = '%ih' % npts
 	return pack(formatstr, *(dec_data * 32768).astype(np.int16))
 
+def gen_sine(self, freq, sr, path):
+	sine = rosa.tone(frequency=freq, sr=sr, length=sr).astype(np.float32)
+	sf.write(path, sine, sr, 'FLOAT')
+
+# librosa source code
 def shift_pitch(y, sr, n_steps, bins_per_octave=12):
 	rate = 2.0 ** (-float(n_steps) / bins_per_octave)
 	# Stretch in time, then resample
 	y_shift = rosa.core.resample(rosa.effects.time_stretch(y, rate), float(sr) / rate, sr)
 	# Crop to the same dimension as the input
 	return rosa.util.fix_length(y_shift, len(y))
+
+def build_voiceline(base_wav, base_f, base_sr, pitch, vol, in_sr, out_sr):
+	"""Build a wav with pitch and volume modulations imposed on a base wav.
+
+	base_wav : Base "voice" described with array of floats.
+	base_f   : The frequency of base wav, assumed to be constant.
+	base_sr  : Sampling rate of base wav.
+	
+	pitch  : Pitch array (int)
+	vol    : Volume array (float), same length as pitch.
+	in_sr  : Sampling rate of pitch and vol.
+
+	out_sr : Sampling rate of the output voiceline.
+	"""
+	if len(pitch) != len(vol):
+		raise ValueError('pitch and vol not same length')
+
+	bt = 0.0 # base time: Current index of base wav.
+	bt_max = len(base_wav)
+	step_size = base_sr / out_sr
+
+	i = 0 # Index of pitch and vol.
+	i_max = len(pitch) - 1 # Final sample is only for interpolation.
+	f_per_sample = int(out_sr / in_sr) # Frames per pitch and vol sample.
+	sample_use = 0 # Times the current sample has been used.
+
+	y = np.empty(f_per_sample * i_max)
+	for t in range(len(y)):
+		# Sample the base wav and scale by volume.
+		# TODO: interpolate volume
+		floor = int(math.floor(bt))
+		ceil  = int(math.ceil(bt))
+		ceil_i = ceil if ceil < bt_max else 0
+		y[t] = vol[i] * lerp(base_wav[floor], base_wav[ceil_i], bt - floor)
+		
+		# Step forward in base wav, taking pitch into account.
+		target_f = lerp(pitch[i], pitch[i+1], sample_use / f_per_sample)
+		bt += step_size * (target_f / base_f)	
+		bt = bt % bt_max # Base wav is cyclic.
+
+		# Move close to next pitch/vol sample.
+		sample_use += 1
+		if sample_use == f_per_sample:
+			sample_use = 0
+			i += 1
+	return y
+
+def lerp(a, b, t):
+	return (1-t)*a + t*b
