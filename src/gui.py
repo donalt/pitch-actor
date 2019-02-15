@@ -236,6 +236,9 @@ class PitchGUI:
 
 	def play_button(self):
 		self.record_btn.config(state=DISABLED)
+		entry = self.line_entry.get()
+		shift = 0 if len(entry)==0 else int(float(entry))
+		self.audio.pitch_shift = shift
 		self.audio.play()
 		self.root.after(0, self.play_callback)
 
@@ -271,6 +274,7 @@ class PitchGUI:
 		pass
 
 	def valid_line_entry(self, inserting, oldstr, new):
+		return True # TODO: PLACEHOLDER FOR MANIPULATING PITCH SHIFT
 		if inserting != '1': # Don't validate deletion.
 			return True
 		# len <= 3 and no starting with 0.

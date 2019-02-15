@@ -3,7 +3,7 @@ import librosa as rosa
 import pyaudio
 import wave
 import time
-from struct import unpack
+from struct import unpack, pack
 
 class Audio():
 	RECORD_RATE = 11025
@@ -23,12 +23,16 @@ class Audio():
 		self.start_ratio = 0 # [0,1] from where to start playback.
 		self.threshold = self.THRESHOLD
 		self._recording = False
+		self.pitch_shift = 12
 
 	def _load_audio(self, path=None, binary=None):
 		if path is not None:
 			self.y, _ = rosa.load(path, sr=self.RECORD_RATE)
 		elif binary is not None:
-			self.y = binwav2dec(binary)
+			print(binary)
+			self.y = bin2dec(binary)
+			self.y = dec2bin(self.y)
+			self.y = bin2dec(self.y)
 		else:
 			raise ValueError('path or binary needs to be set')
 
@@ -42,7 +46,6 @@ class Audio():
 		self.wf = wave.open(file_name, 'rb')
 		# Open non-binary wave file.
 		self._load_audio(path=file_name)
-		#S, _ = rosa.magphase(rosa.stft(self.y, self.FRAME_LEN, self.HOP_LEN))
 		# Get the RMS (volume).
 		self.vol = rosa.feature.rmse(y=self.y, frame_length=self.FRAME_LEN, hop_length=self.HOP_LEN).flatten()
 		# Get pitch.
@@ -55,6 +58,17 @@ class Audio():
 		self.gui.draw_graph(self.gated_pitch(), self.vol)
 
 	def play(self):
+		# Shift the pitch of the whole wav file and play it.
+		# data = shift_pitch(self.y, self.RECORD_RATE, self.pitch_shift)
+		# self.wf.close()
+		# self.wf = wave.open('pitchtest.wav', 'wb')
+		# self.wf.setnchannels(1)
+		# self.wf.setsampwidth(self.pyaudio.get_sample_size(pyaudio.paInt16))
+		# self.wf.setframerate(self.RECORD_RATE)
+		# self.wf.writeframes(dec2bin(data))
+		# self.wf.close()
+		# self.wf = wave.open('pitchtest.wav', 'rb')
+
 		# Stop playback if there is one, and rewind to starting position.
 		if self.stream is not None:
 			self.stream.stop_stream()
@@ -152,7 +166,20 @@ class Audio():
 	def set_start(self, start_ratio):
 		self.start_ratio = start_ratio
 
-def binwav2dec(bin_data):
+# TODO: use Struct(format) to compile formatstr once.
+def bin2dec(bin_data):
 	npts = int(len(bin_data)/2)
 	formatstr = '%ih' % npts
-	return np.array(unpack(formatstr, bin_data)) / 32768
+	return np.array(unpack(formatstr, bin_data)) / 32768 # 16 bit data.
+
+def dec2bin(dec_data):
+	npts = int(len(dec_data))
+	formatstr = '%ih' % npts
+	return pack(formatstr, *(dec_data * 32768).astype(np.int16))
+
+def shift_pitch(y, sr, n_steps, bins_per_octave=12):
+	rate = 2.0 ** (-float(n_steps) / bins_per_octave)
+	# Stretch in time, then resample
+	y_shift = rosa.core.resample(rosa.effects.time_stretch(y, rate), float(sr) / rate, sr)
+	# Crop to the same dimension as the input
+	return rosa.util.fix_length(y_shift, len(y))
