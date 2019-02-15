@@ -90,18 +90,45 @@ class PitchGUI:
 		#### dubbing move controls ##################################################
 		dubbing = Frame(window)
 		dubbing.pack()
+		dubbtns = Frame(dubbing)
+		dubbtns.pack()
 
-		prev_ln_btn = Button(dubbing, text='Prev', command=self.prev_line)
-		next_ln_btn = Button(dubbing, text='Next', command=self.next_line)
-		prev_char_btn = Button(dubbing, text='PrevChar', command=self.prev_charline)
-		next_char_btn = Button(dubbing, text='NextChar', command=self.next_charline)
-		self.line_entry = Entry(dubbing, width=3, validate='key', vcmd=(dubbing.register(self.valid_line_entry),'%d','%s','%S'))
+		self.undubbed = BooleanVar()
+		self.undubbed.set(False)
 
+		undubbed_btn = Checkbutton(dubbtns, text='Undubbed', variable=self.undubbed, indicatoron=0)
+		prev_ln_btn = Button(dubbtns, text='Prev', command=self.prev_line)
+		next_ln_btn = Button(dubbtns, text='Next', command=self.next_line)
+		prev_char_btn = Button(dubbtns, text='PrevChar', command=self.prev_charline)
+		next_char_btn = Button(dubbtns, text='NextChar', command=self.next_charline)
+		self.line_entry = Entry(dubbtns, width=3, validate='key', vcmd=(dubbtns.register(self.valid_line_entry),'%d','%s','%S'))
+
+		undubbed_btn.pack(side=LEFT, ipady=10, ipadx=20)
 		prev_ln_btn.pack(side=LEFT, ipady=10, ipadx=20)
 		next_ln_btn.pack(side=LEFT, ipady=10, ipadx=20)
 		prev_char_btn.pack(side=LEFT, ipady=10, ipadx=20)
 		next_char_btn.pack(side=LEFT, ipady=10, ipadx=20)
 		self.line_entry.pack(side=LEFT)
+
+		#### dubbing dialogue text ##################################################
+		lines = Frame(dubbing)
+		lines.pack()
+
+		# prev line, current line, next line
+		self.p_line = Text(lines, width=80, height=3, wrap=WORD, cursor='arrow')
+		self.c_line = Text(lines, width=80, height=3, wrap=WORD, cursor='arrow')
+		self.n_line = Text(lines, width=80, height=3, wrap=WORD, cursor='arrow')
+		self.p_line.pack()
+		self.c_line.pack()
+		self.n_line.pack()
+
+		# PLACEHOLDER TEXT
+		self.p_line.insert(END, 'Ehm, not quite.')
+		self.c_line.insert(END, 'Are you sure? You see, I have visited every nook and hook of this deserted ball of granite you like to call "Mars", and I haven\'t seen any of that.')
+		self.n_line.insert(END, 'You know what, you talk waaay too much man, go chill! Or one day, you\'ll say too much to a very unfortunate individual.')
+		self.p_line.config(state=DISABLED)
+		self.c_line.config(state=DISABLED)
+		self.n_line.config(state=DISABLED)
 
 		self.audio.load_wav('../sound/test.wav') # TESTING
 		window.mainloop()
