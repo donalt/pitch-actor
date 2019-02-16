@@ -97,7 +97,7 @@ class Audio():
 			#vol = np.ones(pitch.size) * 0.5
 			p = np.copy(pitch)
 			p[p == -1] = 0
-			self.pitch_y = build_voiceline(sine, 220, sr, p*3, vol, self.pitch_sr*SPEED_UP, self.RECORD_RATE)
+			self.pitch_y = build_voiceline(sine, 220, sr, p*4, vol, self.pitch_sr*SPEED_UP, self.RECORD_RATE)
 			#self.save_wav(y, 'voiceline.wav', self.RECORD_RATE)
 		# Play the synthesised voice.
 		self.pitch_y_i = 0
@@ -159,7 +159,7 @@ class Audio():
 		self.start_ratio = 0
 		self.stop()
 
-	def calc_pitch(self, fmin=20, fmax=300):
+	def calc_pitch(self, fmin=50, fmax=800):
 		windows = int(np.ceil(self.samples / self.HOP_LEN))
 		pitches, mag = rosa.piptrack(self.y, self.sr, None, self.FRAME_LEN, self.HOP_LEN, fmin, fmax)
 

@@ -179,6 +179,7 @@ class PitchGUI:
 			self.graph.coords(lines[frame], c)
 
 	def draw_graph(self, pitch, vol):
+		self.dirty = True
 		#self.pitch = audio.gate(pitch, vol, self.threshold)
 		self.pitch = pitch
 		self.vol = vol
@@ -234,7 +235,6 @@ class PitchGUI:
 		path = filedialog.askopenfilename(title='Select wav file', filetypes=(("wav file","*.wav"),))
 		if len(path) > 0:
 			self.audio.load_wav(path)
-			self.dirty = True
 
 	def save_wav_file(self):
 		path = filedialog.asksaveasfilename(title='Save audio clip as', filetypes=(("wav file","*.wav"),))
