@@ -94,9 +94,10 @@ class Audio():
 
 		sine, sr = sf.read('../sound/sine220.wav', dtype='float32')
 		# pitch = np.linspace(440, 880, 60)
-		pitch[pitch == -1] = 0
+		p = np.copy(pitch)
+		p[p == -1] = 0
 		vol = np.ones(pitch.size) * 0.5
-		y = build_voiceline(sine, 220, sr, pitch*3, vol, self.pitch_sr*SPEED_UP, self.RECORD_RATE)
+		y = build_voiceline(sine, 220, sr, p*3, vol, self.pitch_sr*SPEED_UP, self.RECORD_RATE)
 		#self.voice = dec2bin(y)
 		self.save_wav(y, 'voiceline.wav', self.RECORD_RATE)
 		return
