@@ -18,6 +18,8 @@ X_RIGHT = 15 # x-axis right pad.
 PITCH_Y_PAD = 10 # Extra headroom over pitch curve.
 Y_SKIP = 10 # How many y pixels to move the lowest tick by.
 
+THRESHOLD = 0.1 # Threshold for voice on/off
+
 class PitchGUI:
 	def __init__(self):
 		self.audio = audio.Audio(self)
@@ -47,12 +49,14 @@ class PitchGUI:
 		self.rewind_btn = Button(controls, text='Rewind', command=self.rewind_button)
 		self.record_btn = Button(controls, text='Record', command=self.record_button)
 		self.save_btn = Button(controls, text='Save', command=self.save_wav_file)
+		self.listen_btn = Button(controls, text='Listen', command=self.listen_pitch)
 
 		self.stop_btn.pack(side=LEFT, ipady=10, ipadx=20)
 		self.play_btn.pack(side=LEFT, ipady=10, ipadx=20)
 		self.rewind_btn.pack(side=LEFT, ipady=10, ipadx=20)
 		self.record_btn.pack(side=LEFT, ipady=10, ipadx=20)
 		self.save_btn.pack(side=LEFT, ipady=10, ipadx=20)
+		self.listen_btn.pack(side=LEFT, ipady=10, ipadx=20)
 
 
 		#### pitch & volume graph ##################################################
@@ -72,7 +76,7 @@ class PitchGUI:
 		# Horizontal threshold line.
 		self.threshold_line = self.graph.create_line(0, 0, GRAPH_W, 0,
 		                                            fill='#005b96', dash='-', width=2)
-		self.set_threshold(self.audio.threshold)
+		self.set_threshold(THRESHOLD)
 		# Border (xaxis canvas is used for lower line)
 		self.graph.create_line(0, 0, 0, GRAPH_H)             # left y
 		self.graph.create_line(GRAPH_W, 0, GRAPH_W, GRAPH_H) # right y
@@ -133,41 +137,51 @@ class PitchGUI:
 		self.audio.load_wav('../sound/test.wav') # TESTING
 		window.mainloop()
 
+
 	def draw_curve(self, x, y, tag, color='#000'):
 		if x.size != y.size:
 			raise ValueError('x and y must have same dimensions')
 		# Scale to fit and invert.
 		y = GRAPH_H - y * (GRAPH_H / self.max_y)
 		y_lim = GRAPH_H
-		for i in range(y.size - 1):
-			if y[i] <= y_lim and y[i+1] <= y_lim:
-				self.graph.create_line(x[i], y[i], x[i+1], y[i+1], width=2, tags=tag, fill=color)
+		curve = np.empty(y.size - 1, dtype=int)
+		for i in range(curve.size):
+			if y[i] > y_lim or y[i+1] > y_lim:
+				curve[i] = self.graph.create_line(x[i], -2, x[i+1], -2, width=2, tags=tag, fill=color)
+			else:
+				curve[i] = self.graph.create_line(x[i], y[i], x[i+1], y[i+1], width=2, tags=tag, fill=color)
+		return curve
 
-	def alter_curve(self, x, y, tag):
-		tag = (tag,) # gettags() returns a tuple of tags
+	def alter_point(self, x, y, tag):
 		x = max(0, min(x, GRAPH_W))
 		y = max(0, min(y, GRAPH_H))
-		frame = int((x/GRAPH_W) * (self.max_x))
-		if frame == self.max_x:
-			frame -= 1
+		frame = int((x/GRAPH_W) * (self.max_x - 1) + 0.5)
 
-		frame_x = (frame / (self.max_x - 1)) * GRAPH_W
-		items = self.graph.find_overlapping(frame_x-1,-1, frame_x+1,GRAPH_H+1)
-		
-		for i in items:
-			# Find pitch lines.
-			if self.graph.gettags(i) == tag:
-				c = self.graph.coords(i)
-				# Update first or second point.
-				if abs(c[0] - frame_x) < 0.05:
-					c[1] = y
-				else:
-					c[3] = y
-				self.graph.coords(i, c)
+		if tag == 'p':
+			lines = self.p_lines
+			values = self.pitch
+			if values[frame] < 0:
+				return
+			self.pitch[frame] = (GRAPH_H - y) * (self.max_y/GRAPH_H)
+		else:
+			lines = self.v_lines
+			values = self.vol
+			self.vol[frame] = y
+
+		if frame > 0 and values[frame-1] >= 0: # Left line
+			c = self.graph.coords(lines[frame - 1])
+			c[3] = y
+			self.graph.coords(lines[frame - 1], c)
+		if frame < len(lines) and values[frame+1] >= 0: # Right line
+			c = self.graph.coords(lines[frame])
+			c[1] = y
+			self.graph.coords(lines[frame], c)
 
 	def draw_graph(self, pitch, vol):
+		self.pitch = audio.gate(pitch, vol, self.threshold)
+		self.vol = vol
 		self.max_x = pitch.size
-		self.draw_pitch(pitch)
+		self.draw_pitch(self.pitch)
 		self.draw_volume(vol)
 		self.draw_axes()
 
@@ -175,12 +189,12 @@ class PitchGUI:
 		self.max_y = np.max(pitch) + PITCH_Y_PAD
 		self.graph.delete('p')
 		x = np.linspace(0, GRAPH_W, pitch.size)
-		self.draw_curve(x, pitch, 'p', color='red')
+		self.p_lines = self.draw_curve(x, pitch, 'p', color='red')
 
 	def draw_volume(self, vol):
 		self.graph.delete('v')
 		x = np.linspace(0, GRAPH_W, vol.size)
-		self.draw_curve(x, vol * 150, 'v')
+		self.v_lines = self.draw_curve(x, vol * 150, 'v')
 
 	def draw_axes(self):
 		self.xaxis.delete('v')
@@ -209,11 +223,9 @@ class PitchGUI:
 			self.move_cursor(self.cursor_line, -2)
 
 	def set_threshold(self, value):
+		self.threshold = value
 		value = GRAPH_H - (value * 150)
 		self.graph.coords(self.threshold_line, [0, value, GRAPH_W, value])
-
-	def save_wav(self):
-		pass
 
 	########### Menu Options ############
 	def open_wav_file(self):
@@ -236,9 +248,6 @@ class PitchGUI:
 
 	def play_button(self):
 		self.record_btn.config(state=DISABLED)
-		entry = self.line_entry.get()
-		shift = 0 if len(entry)==0 else int(float(entry))
-		self.audio.pitch_shift = shift
 		self.audio.play()
 		self.root.after(0, self.play_callback)
 
@@ -249,7 +258,6 @@ class PitchGUI:
 			self.audio.stop()
 			self.move_cursor(self.cursor_line, -2)
 
-	# TODO: Disable other buttons while recording
 	def record_button(self):
 		if self.audio.recording():
 			self.audio.stop_recording()
@@ -260,6 +268,9 @@ class PitchGUI:
 			self.audio.start_recording()
 			self.play_btn.config(state=DISABLED)
 			self.rewind_btn.config(state=DISABLED)
+
+	def listen_pitch(self):
+		self.audio.play_pitch(self.pitch)
 
 	def prev_line(self):
 		pass
@@ -291,7 +302,7 @@ class PitchGUI:
 			self.move_cursor(self.cursor_start_line, event.x)
 
 	def mouse1_on_graph(self, event):
-		self.alter_curve(event.x, event.y, 'p')
+		self.alter_point(event.x, event.y, 'p')
 
 	def mouse3_on_graph(self, event):
-		self.alter_curve(event.x, event.y, 'v')
+		self.alter_point(event.x, event.y, 'v')

@@ -7,6 +7,8 @@ import time
 import math
 from struct import unpack, pack
 
+SPEED_UP = 1.2 # Speed up rate of pitch preview.
+
 class Audio():
 	RECORD_RATE = 11025
 	
@@ -15,7 +17,6 @@ class Audio():
 	FRAME_LEN = 1024
 	HOP_LEN = 512
 	CURSOR_OFFSET = 0.1 # How many seconds to delay the playback cursor.
-	THRESHOLD = 0.1 # Threshold for voice on/off
 
 	def __init__(self, gui):
 		self.gui = gui
@@ -24,16 +25,15 @@ class Audio():
 		self.y = None      # wav file in floats.
 		self.stream = None # Stream used when playing and recording wav.
 		self.start_ratio = 0 # [0,1] from where to start playback.
-		self.threshold = self.THRESHOLD
 		self._recording = False
 		self.pitch_shift = 12
 
-		sine, sr = sf.read('../sound/sine220.wav', dtype='float32')
-		pitch = np.linspace(440, 880, 60)
-		vol = np.ones(60) * 0.2
-		y = build_voiceline(sine, 220, sr, pitch, vol, 30, self.RECORD_RATE)
-		self.save_wav(y, 'voiceline.wav', self.RECORD_RATE)
-		exit()
+		# sine, sr = sf.read('../sound/sine220.wav', dtype='float32')
+		# pitch = np.linspace(440, 880, 60)
+		# vol = np.ones(60) * 0.2
+		# y = build_voiceline(sine, 220, sr, pitch, vol, 30, self.RECORD_RATE)
+		# self.save_wav(y, 'voiceline.wav', self.RECORD_RATE)
+		# exit()
 
 	def _load_audio(self, path=None, binary=None):
 		if path is not None:
@@ -54,15 +54,15 @@ class Audio():
 		# Open non-binary wave file.
 		self._load_audio(path=file_name)
 		# Get the RMS (volume).
-		self.vol = rosa.feature.rmse(y=self.y, frame_length=self.FRAME_LEN, hop_length=self.HOP_LEN).flatten()
+		vol = rosa.feature.rmse(y=self.y, frame_length=self.FRAME_LEN, hop_length=self.HOP_LEN).flatten()
 		# Get pitch.
-		self.pitch = self.calc_pitch()
+		pitch = self.calc_pitch()
 
-		if self.vol.size != self.pitch.size:
-			self.vol = self.vol[1:]
+		if vol.size != pitch.size:
+			vol = vol[1:]
 
 		self.wf.rewind()
-		self.gui.draw_graph(self.gated_pitch(), self.vol)
+		self.gui.draw_graph(pitch, vol)
 
 	def save_wav(self, y, path, sr):
 		wf = wave.open(path, 'wb')
@@ -73,10 +73,7 @@ class Audio():
 		wf.close()
 
 	def play(self):
-		# Stop playback if there is one, and rewind to starting position.
-		if self.stream is not None:
-			self.stream.stop_stream()
-			self.stream.close()
+		self._close_stream()
 		self.wf.setpos(int(self.wf.getnframes() * self.start_ratio))
 
 		self.stream = self.pyaudio.open(
@@ -92,16 +89,40 @@ class Audio():
 		data = self.wf.readframes(frame_count)
 		return (data, pyaudio.paContinue)
 
+	def play_pitch(self, pitch):
+		self._close_stream()
+
+		sine, sr = sf.read('../sound/sine220.wav', dtype='float32')
+		# pitch = np.linspace(440, 880, 60)
+		pitch[pitch == -1] = 0
+		vol = np.ones(pitch.size) * 0.5
+		y = build_voiceline(sine, 220, sr, pitch*3, vol, self.pitch_sr*SPEED_UP, self.RECORD_RATE)
+		#self.voice = dec2bin(y)
+		self.save_wav(y, 'voiceline.wav', self.RECORD_RATE)
+		return
+		self.stream = self.pyaudio.open(
+			rate=self.RECORD_RATE,
+			channels=1,
+			format=self.pyaudio.get_format_from_width(4),
+			output=True,
+			stream_callback=self._pitch_callback
+		)
+		self.play_time = time.clock()
+
+	def _pitch_callback(self, in_data, frame_count, time_info, status):
+		data = 0 # TODO: Play preview directly in-app.
+		return (data, pyaudio.paContinue)
+
 	def stop_recording(self):
-		self.stream.stop_stream()
-		self.stream.close()
-		self.stream = None
+		self._close_stream()
 		self.load_wav(self.TEMP_WAV)
 		self._recording = False
 
 	def start_recording(self):
+		self._close_stream()
 		if self.wf is not None:
 			self.wf.close()
+
 		self.wf = wave.open(self.TEMP_WAV, 'wb')
 		self.wf.setnchannels(1)
 		self.wf.setsampwidth(self.pyaudio.get_sample_size(pyaudio.paInt16))
@@ -120,6 +141,12 @@ class Audio():
 		self.wf.writeframes(in_data)
 		return (None, pyaudio.paContinue)
 
+	def _close_stream(self):
+		if self.stream is not None:
+			self.stream.stop_stream()
+			self.stream.close()
+			self.stream = None
+
 	def stop(self):
 		if self.stream and self.stream.is_active():
 			self.stream.stop_stream()
@@ -130,26 +157,13 @@ class Audio():
 
 	def calc_pitch(self, fmin=20, fmax=300):
 		windows = int(np.ceil(self.samples / self.HOP_LEN))
-		#window_time = self.FRAME_LEN / self.sr
-		#t_between_samples = self.HOP_LEN / self.sr
-
-		# TODO: get S from rosa.stft() first.
 		pitches, mag = rosa.piptrack(self.y, self.sr, None, self.FRAME_LEN, self.HOP_LEN, fmin, fmax)
 
 		pitch = np.empty(windows)
-		#magnitude = np.empty(windows)
 		for t in range(windows):
 			max_i = mag[:, t].argmax()
-			#magnitude[t] = mag[max_i, t]
 			pitch[t] = pitches[max_i, t]
-			#if (magnitude[t] < threshold):
-			#	pitch[t] = None
-		return pitch
-
-	# Return pitch after applying threshold.
-	def gated_pitch(self):
-		pitch = np.copy(self.pitch)
-		pitch[self.vol < self.threshold] = -1
+		self.pitch_sr = self.sr * (pitch.size / self.y.size)
 		return pitch
 
 	#### Getters ####
@@ -181,9 +195,14 @@ def dec2bin(dec_data):
 	formatstr = '%ih' % npts
 	return pack(formatstr, *(dec_data * 32768).astype(np.int16))
 
-def gen_sine(self, freq, sr, path):
+def gen_sine(freq, sr, path):
 	sine = rosa.tone(frequency=freq, sr=sr, length=sr).astype(np.float32)
 	sf.write(path, sine, sr, 'FLOAT')
+
+def gate(array, test, threshold):
+	a = np.copy(array)
+	a[test < threshold] = -1
+	return a
 
 # librosa source code
 def shift_pitch(y, sr, n_steps, bins_per_octave=12):
@@ -218,7 +237,7 @@ def build_voiceline(base_wav, base_f, base_sr, pitch, vol, in_sr, out_sr):
 	f_per_sample = int(out_sr / in_sr) # Frames per pitch and vol sample.
 	sample_use = 0 # Times the current sample has been used.
 
-	y = np.empty(f_per_sample * i_max)
+	y = np.empty(f_per_sample * i_max, dtype='float32')
 	for t in range(len(y)):
 		# Sample the base wav and scale by volume.
 		# TODO: interpolate volume
@@ -232,7 +251,7 @@ def build_voiceline(base_wav, base_f, base_sr, pitch, vol, in_sr, out_sr):
 		bt += step_size * (target_f / base_f)	
 		bt = bt % bt_max # Base wav is cyclic.
 
-		# Move close to next pitch/vol sample.
+		# Move closer to next pitch/vol sample.
 		sample_use += 1
 		if sample_use == f_per_sample:
 			sample_use = 0
