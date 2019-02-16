@@ -178,7 +178,8 @@ class PitchGUI:
 			self.graph.coords(lines[frame], c)
 
 	def draw_graph(self, pitch, vol):
-		self.pitch = audio.gate(pitch, vol, self.threshold)
+		#self.pitch = audio.gate(pitch, vol, self.threshold)
+		self.pitch = pitch
 		self.vol = vol
 		self.max_x = pitch.size
 		self.draw_pitch(self.pitch)
@@ -270,7 +271,7 @@ class PitchGUI:
 			self.rewind_btn.config(state=DISABLED)
 
 	def listen_pitch(self):
-		self.audio.play_pitch(self.pitch)
+		self.audio.play_pitch(self.pitch, self.vol)
 
 	def prev_line(self):
 		pass

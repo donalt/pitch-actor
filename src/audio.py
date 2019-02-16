@@ -57,9 +57,8 @@ class Audio():
 		vol = rosa.feature.rmse(y=self.y, frame_length=self.FRAME_LEN, hop_length=self.HOP_LEN).flatten()
 		# Get pitch.
 		pitch = self.calc_pitch()
-
 		if vol.size != pitch.size:
-			vol = vol[1:]
+			vol = vol[:-1]
 
 		self.wf.rewind()
 		self.gui.draw_graph(pitch, vol)
@@ -89,14 +88,15 @@ class Audio():
 		data = self.wf.readframes(frame_count)
 		return (data, pyaudio.paContinue)
 
-	def play_pitch(self, pitch):
+	def play_pitch(self, pitch, vol):
 		self._close_stream()
 
 		sine, sr = sf.read('../sound/sine220.wav', dtype='float32')
 		# pitch = np.linspace(440, 880, 60)
 		p = np.copy(pitch)
 		p[p == -1] = 0
-		vol = np.ones(pitch.size) * 0.5
+		#vol = np.ones(pitch.size) * 0.5
+		#print(vol)
 		y = build_voiceline(sine, 220, sr, p*3, vol, self.pitch_sr*SPEED_UP, self.RECORD_RATE)
 		#self.voice = dec2bin(y)
 		self.save_wav(y, 'voiceline.wav', self.RECORD_RATE)
@@ -244,8 +244,9 @@ def build_voiceline(base_wav, base_f, base_sr, pitch, vol, in_sr, out_sr):
 		# TODO: interpolate volume
 		floor = int(math.floor(bt))
 		ceil  = int(math.ceil(bt))
-		ceil_i = ceil if ceil < bt_max else 0
-		y[t] = vol[i] * lerp(base_wav[floor], base_wav[ceil_i], bt - floor)
+		ceil_bt = ceil if ceil < bt_max else 0
+		target_vol = lerp(vol[i], vol[i+1], sample_use / f_per_sample)
+		y[t] = target_vol * lerp(base_wav[floor], base_wav[ceil_bt], bt - floor)
 		
 		# Step forward in base wav, taking pitch into account.
 		target_f = lerp(pitch[i], pitch[i+1], sample_use / f_per_sample)
