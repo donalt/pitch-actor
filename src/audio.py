@@ -45,7 +45,6 @@ class Audio():
 
 		self.sr = self.RECORD_RATE
 		self.samples = self.y.size
-		self.duration = self.samples / self.sr # Length in seconds.
 
 	def load_wav(self, file_name):
 		if self.wf is not None:
@@ -82,36 +81,40 @@ class Audio():
 			output=True,
 			stream_callback=self._play_callback
 		)
+		self.duration = self.samples / self.sr # Length in seconds.
 		self.play_time = time.clock()
 
 	def _play_callback(self, in_data, frame_count, time_info, status):
 		data = self.wf.readframes(frame_count)
 		return (data, pyaudio.paContinue)
 
-	def play_pitch(self, pitch, vol):
+	def play_pitch(self, pitch, vol, dirty):
 		self._close_stream()
-
-		sine, sr = sf.read('../sound/sine220.wav', dtype='float32')
-		# pitch = np.linspace(440, 880, 60)
-		p = np.copy(pitch)
-		p[p == -1] = 0
-		#vol = np.ones(pitch.size) * 0.5
-		#print(vol)
-		y = build_voiceline(sine, 220, sr, p*3, vol, self.pitch_sr*SPEED_UP, self.RECORD_RATE)
-		#self.voice = dec2bin(y)
-		self.save_wav(y, 'voiceline.wav', self.RECORD_RATE)
-		return
+		# Resynthesise voice if pitch/vol has changed.
+		if dirty:
+			sine, sr = sf.read('../sound/sine220.wav', dtype='float32')
+			# pitch = np.linspace(440, 880, 60)
+			#vol = np.ones(pitch.size) * 0.5
+			p = np.copy(pitch)
+			p[p == -1] = 0
+			self.pitch_y = build_voiceline(sine, 220, sr, p*3, vol, self.pitch_sr*SPEED_UP, self.RECORD_RATE)
+			#self.save_wav(y, 'voiceline.wav', self.RECORD_RATE)
+		# Play the synthesised voice.
+		self.pitch_y_i = 0
 		self.stream = self.pyaudio.open(
 			rate=self.RECORD_RATE,
 			channels=1,
-			format=self.pyaudio.get_format_from_width(4),
+			format=self.pyaudio.get_format_from_width(2),
 			output=True,
 			stream_callback=self._pitch_callback
 		)
+		self.duration = self.pitch_y.size / self.RECORD_RATE
 		self.play_time = time.clock()
 
 	def _pitch_callback(self, in_data, frame_count, time_info, status):
-		data = 0 # TODO: Play preview directly in-app.
+		b = min(self.pitch_y_i + frame_count, self.pitch_y.size)
+		data = dec2bin(self.pitch_y[self.pitch_y_i : b])
+		self.pitch_y_i = b
 		return (data, pyaudio.paContinue)
 
 	def stop_recording(self):

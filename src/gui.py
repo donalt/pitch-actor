@@ -135,8 +135,8 @@ class PitchGUI:
 		self.n_line.config(state=DISABLED)
 
 		self.audio.load_wav('../sound/test.wav') # TESTING
+		self.dirty = True
 		window.mainloop()
-
 
 	def draw_curve(self, x, y, tag, color='#000'):
 		if x.size != y.size:
@@ -153,6 +153,7 @@ class PitchGUI:
 		return curve
 
 	def alter_point(self, x, y, tag):
+		self.dirty = True
 		x = max(0, min(x, GRAPH_W))
 		y = max(0, min(y, GRAPH_H))
 		frame = int((x/GRAPH_W) * (self.max_x - 1) + 0.5)
@@ -233,6 +234,7 @@ class PitchGUI:
 		path = filedialog.askopenfilename(title='Select wav file', filetypes=(("wav file","*.wav"),))
 		if len(path) > 0:
 			self.audio.load_wav(path)
+			self.dirty = True
 
 	def save_wav_file(self):
 		path = filedialog.asksaveasfilename(title='Save audio clip as', filetypes=(("wav file","*.wav"),))
@@ -241,7 +243,7 @@ class PitchGUI:
 				path += '.wav'
 			shutil.copy2(self.audio.TEMP_WAV, path)
 
-	###########    Buttons   ############
+	###########    Buttons    ############
 	def rewind_button(self):
 		self.audio.rewind()
 		self.move_cursor(self.cursor_line, -2)
@@ -271,7 +273,9 @@ class PitchGUI:
 			self.rewind_btn.config(state=DISABLED)
 
 	def listen_pitch(self):
-		self.audio.play_pitch(self.pitch, self.vol)
+		self.audio.play_pitch(self.pitch, self.vol, self.dirty)
+		self.root.after(0, self.play_callback)
+		self.dirty = False
 
 	def prev_line(self):
 		pass
