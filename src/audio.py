@@ -184,8 +184,3 @@ def dec2bin(dec_data):
 	npts = int(len(dec_data))
 	formatstr = '%ih' % npts
 	return pack(formatstr, *(dec_data * 32768).astype(np.int16))
-
-def gate(array, test, threshold):
-	a = np.copy(array)
-	a[test < threshold] = -1
-	return a

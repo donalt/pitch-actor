@@ -20,7 +20,8 @@ X_RIGHT = 15 # x-axis right pad.
 PITCH_Y_PAD = 10 # Extra headroom over pitch curve.
 Y_SKIP = 10 # How many y pixels to move the lowest tick by.
 
-THRESHOLD = 0.1 # Threshold for voice on/off
+THRESHOLD = 0.1 # Threshold for voice on/off.
+P_COLOR = '#d62d20' # Color for pitch curve.
 
 class PitchGUI:
 	def __init__(self):
@@ -47,13 +48,14 @@ class PitchGUI:
 		controls = Frame(window)
 		controls.pack()
 
-		w = h = 62
+		w = h = 50
 		img1 = ImageTk.PhotoImage(Image.open('../img/icon/stop.png').resize((w,h), Image.BICUBIC))
-		img2 = ImageTk.PhotoImage(Image.open('../img/icon/play-button.png').resize((w,h), Image.ANTIALIAS))
+		img2 = ImageTk.PhotoImage(Image.open('../img/icon/play.png').resize((w,h), Image.ANTIALIAS))
 		img3 = ImageTk.PhotoImage(Image.open('../img/icon/previous.png').resize((w,h), Image.ANTIALIAS))
-		img4 = ImageTk.PhotoImage(Image.open('../img/icon/favorite.png').resize((w,h), Image.ANTIALIAS))
-		img5 = ImageTk.PhotoImage(Image.open('../img/icon/menu.png').resize((w,h), Image.ANTIALIAS))
-		img6 = ImageTk.PhotoImage(Image.open('../img/icon/musical-note.png').resize((w,h), Image.ANTIALIAS))
+		img4 = ImageTk.PhotoImage(Image.open('../img/icon/rec.png').resize((w,h), Image.ANTIALIAS))
+		img5 = ImageTk.PhotoImage(Image.open('../img/oldicon/menu.png').resize((w,h), Image.ANTIALIAS))
+		img6 = ImageTk.PhotoImage(Image.open('../img/icon/music.png').resize((w,h), Image.ANTIALIAS))
+		img7 = ImageTk.PhotoImage(Image.open('../img/icon/rec2.png').resize((w,h), Image.ANTIALIAS))
 		self.stop_btn = Button(controls, image=img1, bd=0, height=h, width=w, text='Stop', command=self.stop_button)
 		self.play_btn = Button(controls, image=img2, bd=0, height=h, width=w, text='Play', command=self.play_button)
 		self.rewind_btn = Button(controls, image=img3, bd=0, height=h, width=w, text='Rewind', command=self.rewind_button)
@@ -61,17 +63,18 @@ class PitchGUI:
 		self.save_btn = Button(controls, image=img5, bd=0, height=h, width=w, text='Save', command=self.save_wav_file)
 		self.listen_btn = Button(controls, image=img6, bd=0, height=h, width=w, text='Listen', command=self.listen_voice)
 		self.stop_btn.img = img1
-		self.play_btn.img = img1
-		self.rewind_btn.img = img1
-		self.record_btn.img = img1
-		self.save_btn.img = img1
-		self.listen_btn.img = img1
+		self.play_btn.img = img2
+		self.rewind_btn.img = img3
+		self.record_btn.img  = img4
+		self.record_btn.img2 = img7
+		self.save_btn.img = img5
+		self.listen_btn.img = img6
+		self.listen_btn.pack(side=LEFT)
 		self.play_btn.pack(side=LEFT)
 		self.stop_btn.pack(side=LEFT)
 		self.rewind_btn.pack(side=LEFT)
-		self.record_btn.pack(side=LEFT)
+		self.record_btn.pack(side=LEFT, padx=(30,0))
 		self.save_btn.pack(side=LEFT)
-		self.listen_btn.pack(side=LEFT)
 
 
 		#### pitch & volume graph ##################################################
@@ -168,6 +171,25 @@ class PitchGUI:
 				curve[i] = self.graph.create_line(x[i], y[i], x[i+1], y[i+1], width=2, tags=tag, fill=color)
 		return curve
 
+	def gate(array, test, threshold):
+		a = np.copy(array)
+		a[test < threshold] = -1
+		return a
+
+	def gate_volume(self):
+		t = self.threshold
+		for i in range(self.vol.size):
+			if self.vol[i] < t:
+				c = '#f77'
+				w = 1
+			else:
+				c = P_COLOR
+				w = 3
+			if i > 0:
+				self.graph.itemconfig(self.p_lines[i-1], fill=c, width=w)
+			if i < self.p_lines.size:
+				self.graph.itemconfig(self.p_lines[i], fill=c, width=w)
+
 	def alter_point(self, x, y, tag):
 		self.dirty = True
 		x = max(0, min(x, GRAPH_W))
@@ -200,15 +222,16 @@ class PitchGUI:
 		self.pitch = pitch
 		self.vol = vol
 		self.max_x = pitch.size
-		self.draw_pitch(self.pitch)
+		self.draw_pitch(pitch)
 		self.draw_volume(vol)
+		self.gate_volume()
 		self.draw_axes()
 
 	def draw_pitch(self, pitch):
 		self.max_y = np.max(pitch) + PITCH_Y_PAD
 		self.graph.delete('p')
 		x = np.linspace(0, GRAPH_W, pitch.size)
-		self.p_lines = self.draw_curve(x, pitch, 'p', color='red')
+		self.p_lines = self.draw_curve(x, pitch, 'p', color=P_COLOR)
 
 	def draw_volume(self, vol):
 		self.graph.delete('v')
@@ -280,11 +303,15 @@ class PitchGUI:
 	def record_button(self):
 		if self.audio.recording():
 			self.audio.stop_recording()
+			self.record_btn.config(image=self.record_btn.img)
+			self.listen_btn.config(state=NORMAL)
 			self.play_btn.config(state=NORMAL)
 			self.rewind_btn.config(state=NORMAL)
 			self.rewind_button()
 		else:
 			self.audio.start_recording()
+			self.record_btn.config(image=self.record_btn.img2)
+			self.listen_btn.config(state=DISABLED)
 			self.play_btn.config(state=DISABLED)
 			self.rewind_btn.config(state=DISABLED)
 
