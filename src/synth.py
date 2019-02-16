@@ -50,7 +50,6 @@ class Synth():
 
 		for t in range(self.t, end_t):
 			# Sample the base wav and scale by volume.
-			# TODO: interpolate volume
 			vi_floor = int(math.floor(self.vi))
 			vi_ceil  = 0 if (vi_floor + 1 == vi_max) else (vi_floor + 1)
 			target_vol = lerp(vol[self.li], vol[self.li+1], sample_use / self.f_per_sample)
@@ -59,7 +58,7 @@ class Synth():
 			# Step forward in base wav, taking pitch into account.
 			target_f = lerp(pitch[self.li], pitch[self.li+1], sample_use / self.f_per_sample)
 			self.vi += step_size * (target_f / self.voice_f)	
-			self.vi = self.vi % vi_max # Base wav is cyclic.
+			self.vi = self.vi % vi_max # Base voice is cyclic.
 
 			# Move closer to next pitch/vol sample.
 			sample_use += 1

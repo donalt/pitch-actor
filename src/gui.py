@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from tkinter import filedialog
 from tkinter import *
+from PIL import Image, ImageTk
 
 import numpy as np
 import audio # Play / record audio
@@ -43,22 +44,34 @@ class PitchGUI:
 
 
 		#### control panel ##################################################
-		controls = Frame(window, bg='red')
+		controls = Frame(window)
 		controls.pack()
 
-		self.stop_btn = Button(controls, text='Stop', command=self.stop_button)
-		self.play_btn = Button(controls, text='Play', command=self.play_button)
-		self.rewind_btn = Button(controls, text='Rewind', command=self.rewind_button)
-		self.record_btn = Button(controls, text='Record', command=self.record_button)
-		self.save_btn = Button(controls, text='Save', command=self.save_wav_file)
-		self.listen_btn = Button(controls, text='Listen', command=self.listen_voice)
-
-		self.stop_btn.pack(side=LEFT, ipady=10, ipadx=20)
-		self.play_btn.pack(side=LEFT, ipady=10, ipadx=20)
-		self.rewind_btn.pack(side=LEFT, ipady=10, ipadx=20)
-		self.record_btn.pack(side=LEFT, ipady=10, ipadx=20)
-		self.save_btn.pack(side=LEFT, ipady=10, ipadx=20)
-		self.listen_btn.pack(side=LEFT, ipady=10, ipadx=20)
+		w = h = 62
+		img1 = ImageTk.PhotoImage(Image.open('../img/icon/stop.png').resize((w,h), Image.BICUBIC))
+		img2 = ImageTk.PhotoImage(Image.open('../img/icon/play-button.png').resize((w,h), Image.ANTIALIAS))
+		img3 = ImageTk.PhotoImage(Image.open('../img/icon/previous.png').resize((w,h), Image.ANTIALIAS))
+		img4 = ImageTk.PhotoImage(Image.open('../img/icon/favorite.png').resize((w,h), Image.ANTIALIAS))
+		img5 = ImageTk.PhotoImage(Image.open('../img/icon/menu.png').resize((w,h), Image.ANTIALIAS))
+		img6 = ImageTk.PhotoImage(Image.open('../img/icon/musical-note.png').resize((w,h), Image.ANTIALIAS))
+		self.stop_btn = Button(controls, image=img1, bd=0, height=h, width=w, text='Stop', command=self.stop_button)
+		self.play_btn = Button(controls, image=img2, bd=0, height=h, width=w, text='Play', command=self.play_button)
+		self.rewind_btn = Button(controls, image=img3, bd=0, height=h, width=w, text='Rewind', command=self.rewind_button)
+		self.record_btn = Button(controls, image=img4, bd=0, height=h, width=w, text='Record', command=self.record_button)
+		self.save_btn = Button(controls, image=img5, bd=0, height=h, width=w, text='Save', command=self.save_wav_file)
+		self.listen_btn = Button(controls, image=img6, bd=0, height=h, width=w, text='Listen', command=self.listen_voice)
+		self.stop_btn.img = img1
+		self.play_btn.img = img1
+		self.rewind_btn.img = img1
+		self.record_btn.img = img1
+		self.save_btn.img = img1
+		self.listen_btn.img = img1
+		self.play_btn.pack(side=LEFT)
+		self.stop_btn.pack(side=LEFT)
+		self.rewind_btn.pack(side=LEFT)
+		self.record_btn.pack(side=LEFT)
+		self.save_btn.pack(side=LEFT)
+		self.listen_btn.pack(side=LEFT)
 
 
 		#### pitch & volume graph ##################################################
