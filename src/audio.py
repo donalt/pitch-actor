@@ -70,6 +70,10 @@ class Audio():
 		wf.writeframes(dec2bin(y))
 		wf.close()
 
+	def load_voice(self, path, freq):
+		self.voice, self.voice_sr = sf.read(path, dtype='float32')
+		self.voice_f = freq
+
 	def play(self):
 		self._close_stream()
 		self.wf.setpos(int(self.wf.getnframes() * self.start_ratio))
@@ -90,17 +94,14 @@ class Audio():
 
 	def play_pitch(self, pitch, vol, dirty):
 		self._close_stream()
-		# Resynthesise voice if pitch/vol has changed.
+		# Start resynthesising voice if pitch/vol has changed.
 		if dirty:
-			sine, sr = sf.read('../sound/sine220.wav', dtype='float32')
-			# pitch = np.linspace(440, 880, 60)
-			#vol = np.ones(pitch.size) * 0.5
-			p = np.copy(pitch)
-			p[p == -1] = 0
-			self.pitch_y = build_voiceline(sine, 220, sr, p*4, vol, self.pitch_sr*SPEED_UP, self.RECORD_RATE)
-			#self.save_wav(y, 'voiceline.wav', self.RECORD_RATE)
-		# Play the synthesised voice.
-		self.pitch_y_i = 0
+			self.pitch = np.copy(pitch) * 3
+			self.vol = vol
+			self._prep_voiceline()
+
+		# Start playing the synthesised voice.
+		self.play_i = 0
 		self.stream = self.pyaudio.open(
 			rate=self.RECORD_RATE,
 			channels=1,
@@ -108,13 +109,14 @@ class Audio():
 			output=True,
 			stream_callback=self._pitch_callback
 		)
-		self.duration = self.pitch_y.size / self.RECORD_RATE
+		self.duration = self.voiceline.size / self.RECORD_RATE
 		self.play_time = time.clock()
 
 	def _pitch_callback(self, in_data, frame_count, time_info, status):
-		b = min(self.pitch_y_i + frame_count, self.pitch_y.size)
-		data = dec2bin(self.pitch_y[self.pitch_y_i : b])
-		self.pitch_y_i = b
+		self._build_voiceline(int(frame_count * 1.5))
+		b = min(self.play_i + frame_count, self.voiceline.size)
+		data = dec2bin(self.voiceline[self.play_i : b])
+		self.play_i = b
 		return (data, pyaudio.paContinue)
 
 	def stop_recording(self):
@@ -170,6 +172,57 @@ class Audio():
 		self.pitch_sr = self.sr * (pitch.size / self.y.size)
 		return pitch
 
+	def _prep_voiceline(self):
+		samples = len(self.pitch) - 1 # Final sample is only for interpolation.
+		f_per_sample = int(self.RECORD_RATE / self.pitch_sr) # Frames per pitch and vol sample.
+		self.voiceline = np.empty(samples * f_per_sample, dtype='float32')
+		self.voice_i = 0.0 # Current index of voice.
+		self.li      = 0   # Index of pitch/vol.
+		self.t = 0 # Index of the output voiceline.
+		#self._build_voiceline(1024)
+
+	def _build_voiceline(self, samples):
+		"""Build a wav with pitch and volume modulations imposed on a base voice.
+		"""
+		out_sr = self.RECORD_RATE # Sample rate of the output voiceline.
+		f_per_sample = int(out_sr / self.pitch_sr) # Frames per pitch and vol sample.
+		rem = samples % f_per_sample
+		if rem > 0:
+			samples += f_per_sample - rem
+
+		end_t = min(self.t + samples, len(self.voiceline))
+		if self.t == end_t: # Already finished building.
+			return
+
+		voice = self.voice # Base "voice" described with array of floats.
+		pitch = self.pitch # Pitch array (int)
+		vol   = self.vol   # Volume array (float), same length as pitch.
+
+		bt_max = len(voice)
+		step_size = self.voice_sr / out_sr
+		sample_use = 0 # Times the current sample has been used.
+
+		for t in range(self.t, end_t):
+			# Sample the base wav and scale by volume.
+			# TODO: interpolate volume
+			floor = int(math.floor(self.voice_i))
+			ceil  = int(math.ceil(self.voice_i))
+			ceil_bt = ceil if ceil < bt_max else 0
+			target_vol = lerp(vol[self.li], vol[self.li+1], sample_use / f_per_sample)
+			self.voiceline[t] = target_vol * lerp(voice[floor], voice[ceil_bt], self.voice_i - floor)
+			
+			# Step forward in base wav, taking pitch into account.
+			target_f = lerp(pitch[self.li], pitch[self.li+1], sample_use / f_per_sample)
+			self.voice_i += step_size * (target_f / self.voice_f)	
+			self.voice_i = self.voice_i % bt_max # Base wav is cyclic.
+
+			# Move closer to next pitch/vol sample.
+			sample_use += 1
+			if sample_use == f_per_sample:
+				sample_use = 0
+				self.li += 1
+		self.t = end_t
+
 	#### Getters ####
 	def loaded(self):
 		return self.wf is not None
@@ -215,53 +268,6 @@ def shift_pitch(y, sr, n_steps, bins_per_octave=12):
 	y_shift = rosa.core.resample(rosa.effects.time_stretch(y, rate), float(sr) / rate, sr)
 	# Crop to the same dimension as the input
 	return rosa.util.fix_length(y_shift, len(y))
-
-def build_voiceline(base_wav, base_f, base_sr, pitch, vol, in_sr, out_sr):
-	"""Build a wav with pitch and volume modulations imposed on a base wav.
-
-	base_wav : Base "voice" described with array of floats.
-	base_f   : The frequency of base wav, assumed to be constant.
-	base_sr  : Sampling rate of base wav.
-	
-	pitch  : Pitch array (int)
-	vol    : Volume array (float), same length as pitch.
-	in_sr  : Sampling rate of pitch and vol.
-
-	out_sr : Sampling rate of the output voiceline.
-	"""
-	if len(pitch) != len(vol):
-		raise ValueError('pitch and vol not same length')
-
-	bt = 0.0 # base time: Current index of base wav.
-	bt_max = len(base_wav)
-	step_size = base_sr / out_sr
-
-	i = 0 # Index of pitch and vol.
-	i_max = len(pitch) - 1 # Final sample is only for interpolation.
-	f_per_sample = int(out_sr / in_sr) # Frames per pitch and vol sample.
-	sample_use = 0 # Times the current sample has been used.
-
-	y = np.empty(f_per_sample * i_max, dtype='float32')
-	for t in range(len(y)):
-		# Sample the base wav and scale by volume.
-		# TODO: interpolate volume
-		floor = int(math.floor(bt))
-		ceil  = int(math.ceil(bt))
-		ceil_bt = ceil if ceil < bt_max else 0
-		target_vol = lerp(vol[i], vol[i+1], sample_use / f_per_sample)
-		y[t] = target_vol * lerp(base_wav[floor], base_wav[ceil_bt], bt - floor)
-		
-		# Step forward in base wav, taking pitch into account.
-		target_f = lerp(pitch[i], pitch[i+1], sample_use / f_per_sample)
-		bt += step_size * (target_f / base_f)	
-		bt = bt % bt_max # Base wav is cyclic.
-
-		# Move closer to next pitch/vol sample.
-		sample_use += 1
-		if sample_use == f_per_sample:
-			sample_use = 0
-			i += 1
-	return y
 
 def lerp(a, b, t):
 	return (1-t)*a + t*b

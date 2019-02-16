@@ -135,6 +135,7 @@ class PitchGUI:
 		self.n_line.config(state=DISABLED)
 
 		self.audio.load_wav('../sound/test.wav') # TESTING
+		self.audio.load_voice('../sound/sine220.wav', 220)
 		self.dirty = True
 		window.mainloop()
 
