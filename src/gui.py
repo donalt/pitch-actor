@@ -3,7 +3,8 @@ from tkinter import filedialog
 from tkinter import *
 
 import numpy as np
-import audio
+import audio # Play / record audio
+import synth # Synthesise voicelines
 import shutil # Copy files
 
 ### Constants
@@ -22,8 +23,9 @@ THRESHOLD = 0.1 # Threshold for voice on/off
 
 class PitchGUI:
 	def __init__(self):
-		self.audio = audio.Audio(self)
-
+		self.synth = synth.Synth()
+		self.audio = audio.Audio(self, self.synth)
+		
 		self.root = Tk()
 		self.root.wm_title('PitchActor 0.0.1')
 
@@ -49,7 +51,7 @@ class PitchGUI:
 		self.rewind_btn = Button(controls, text='Rewind', command=self.rewind_button)
 		self.record_btn = Button(controls, text='Record', command=self.record_button)
 		self.save_btn = Button(controls, text='Save', command=self.save_wav_file)
-		self.listen_btn = Button(controls, text='Listen', command=self.listen_pitch)
+		self.listen_btn = Button(controls, text='Listen', command=self.listen_voice)
 
 		self.stop_btn.pack(side=LEFT, ipady=10, ipadx=20)
 		self.play_btn.pack(side=LEFT, ipady=10, ipadx=20)
@@ -135,7 +137,7 @@ class PitchGUI:
 		self.n_line.config(state=DISABLED)
 
 		self.audio.load_wav('../sound/test.wav') # TESTING
-		self.audio.load_voice('../sound/sine220.wav', 220)
+		self.synth.load_voice('../sound/sine220.wav', 220)
 		self.dirty = True
 		window.mainloop()
 
@@ -273,8 +275,8 @@ class PitchGUI:
 			self.play_btn.config(state=DISABLED)
 			self.rewind_btn.config(state=DISABLED)
 
-	def listen_pitch(self):
-		self.audio.play_pitch(self.pitch, self.vol, self.dirty)
+	def listen_voice(self):
+		self.audio.play_voice(self.pitch, self.vol, self.dirty)
 		self.root.after(0, self.play_callback)
 		self.dirty = False
 
