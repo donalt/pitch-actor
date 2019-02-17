@@ -94,6 +94,7 @@ class PitchGUI:
 		# Horizontal threshold line.
 		self.threshold_line = self.graph.create_line(0, 0, GRAPH_W, 0,
 		                                            fill='#005b96', dash='-', width=2)
+		self.max_y = GRAPH_H
 		self.set_threshold(THRESHOLD)
 		# Border (xaxis canvas is used for lower line)
 		self.graph.create_line(0, 0, 0, GRAPH_H)             # left y
@@ -171,11 +172,6 @@ class PitchGUI:
 				curve[i] = self.graph.create_line(x[i], y[i], x[i+1], y[i+1], width=2, tags=tag, fill=color)
 		return curve
 
-	def gate(array, test, threshold):
-		a = np.copy(array)
-		a[test < threshold] = -1
-		return a
-
 	def gate_volume(self, index=-1):
 		r = range(self.vol.size) if index==-1 else [index]
 		for i in r:
@@ -222,13 +218,13 @@ class PitchGUI:
 
 	def draw_graph(self, pitch, vol):
 		self.dirty = True
-		#self.pitch = audio.gate(pitch, vol, self.threshold)
 		self.pitch = pitch
 		self.vol = vol
 		self.max_x = pitch.size
 		self.draw_pitch(pitch)
 		self.draw_volume(vol)
 		self.gate_volume()
+		self.set_threshold(THRESHOLD)
 		self.draw_axes()
 
 	def draw_pitch(self, pitch):
@@ -270,7 +266,7 @@ class PitchGUI:
 
 	def set_threshold(self, value):
 		self.threshold = value
-		value = GRAPH_H - (value * 150)
+		value = GRAPH_H - (value * 150) * (GRAPH_H / self.max_y)
 		self.graph.coords(self.threshold_line, [0, value, GRAPH_W, value])
 
 	########### Menu Options ############
@@ -321,7 +317,9 @@ class PitchGUI:
 
 	def listen_voice(self):
 		self.record_btn.config(state=DISABLED)
-		self.audio.play_voice(self.pitch, self.vol, self.dirty)
+		vol = np.copy(self.vol)
+		vol[vol < self.threshold] = 0
+		self.audio.play_voice(self.pitch, vol, self.dirty)
 		self.root.after(0, self.play_callback)
 		self.dirty = False
 
