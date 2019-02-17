@@ -110,7 +110,7 @@ class PitchGUI:
 		self.graph.pack(side=LEFT, padx=(0, X_RIGHT), pady=(Y_TOP, 0))
 		yaxis_graph.pack()
 		self.xaxis.pack()
-		
+		self.yaxis.bind('<Button-1>', self.mouse1_yaxis)
 
 		#### dubbing move controls ##################################################
 		dubbing = Frame(window)
@@ -220,7 +220,7 @@ class PitchGUI:
 		self.draw_pitch(pitch)
 		self.draw_volume(vol)
 		self.gate_volume()
-		self.set_threshold(THRESHOLD)
+		self.set_threshold(self.threshold)
 		self.draw_axes()
 
 	def draw_pitch(self, pitch):
@@ -261,8 +261,8 @@ class PitchGUI:
 			self.move_cursor(self.cursor_line, -2)
 
 	def set_threshold(self, value):
-		self.threshold = value
-		value = self.scale_vol2y(value)
+		self.threshold = max(0, min(value, 1))
+		value = self.scale_vol2y(self.threshold)
 		self.graph.coords(self.threshold_line, [0, value, GRAPH_W, value])
 
 	def scale_pitch2y(self, pitch):
@@ -369,3 +369,7 @@ class PitchGUI:
 
 	def mouse3_on_graph(self, event):
 		self.alter_point(event.x, event.y, 'v')
+
+	def mouse1_yaxis(self, event):
+		self.set_threshold(self.scale_y2vol(event.y - Y_TOP))
+		self.gate_volume()
