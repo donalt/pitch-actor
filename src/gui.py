@@ -49,13 +49,13 @@ class PitchGUI:
 		controls.pack()
 
 		w = h = 50
-		img1 = ImageTk.PhotoImage(Image.open('../img/icon/stop.png').resize((w,h), Image.BICUBIC))
-		img2 = ImageTk.PhotoImage(Image.open('../img/icon/play.png').resize((w,h), Image.ANTIALIAS))
-		img3 = ImageTk.PhotoImage(Image.open('../img/icon/previous.png').resize((w,h), Image.ANTIALIAS))
-		img4 = ImageTk.PhotoImage(Image.open('../img/icon/rec.png').resize((w,h), Image.ANTIALIAS))
-		img5 = ImageTk.PhotoImage(Image.open('../img/oldicon/menu.png').resize((w,h), Image.ANTIALIAS))
-		img6 = ImageTk.PhotoImage(Image.open('../img/icon/music.png').resize((w,h), Image.ANTIALIAS))
-		img7 = ImageTk.PhotoImage(Image.open('../img/icon/rec2.png').resize((w,h), Image.ANTIALIAS))
+		img1 = ImageTk.PhotoImage(file='../img/icon/stop.png')
+		img2 = ImageTk.PhotoImage(file='../img/icon/play.png')
+		img3 = ImageTk.PhotoImage(file='../img/icon/previous.png')
+		img4 = ImageTk.PhotoImage(file='../img/icon/rec.png')
+		img5 = ImageTk.PhotoImage(file='../img/oldicon/menu.png')
+		img6 = ImageTk.PhotoImage(file='../img/icon/music.png')
+		img7 = ImageTk.PhotoImage(file='../img/icon/rec2.png')
 		self.stop_btn = Button(controls, image=img1, bd=0, height=h, width=w, text='Stop', command=self.stop_button)
 		self.play_btn = Button(controls, image=img2, bd=0, height=h, width=w, text='Play', command=self.play_button)
 		self.rewind_btn = Button(controls, image=img3, bd=0, height=h, width=w, text='Rewind', command=self.rewind_button)
@@ -176,10 +176,10 @@ class PitchGUI:
 		a[test < threshold] = -1
 		return a
 
-	def gate_volume(self):
-		t = self.threshold
-		for i in range(self.vol.size):
-			if self.vol[i] < t:
+	def gate_volume(self, index=-1):
+		r = range(self.vol.size) if index==-1 else [index]
+		for i in r:
+			if self.vol[i] < self.threshold:
 				c = '#f77'
 				w = 1
 			else:
@@ -205,7 +205,11 @@ class PitchGUI:
 		else:
 			lines = self.v_lines
 			values = self.vol
-			self.vol[frame] = y
+			# Transform y, cap it, and transform it back.
+			vol_y = min(((GRAPH_H - y) * (self.max_y/GRAPH_H)) / 150, 0.999)
+			y = GRAPH_H - (vol_y*150) * (GRAPH_H / self.max_y)
+			self.vol[frame] = vol_y
+			self.gate_volume(frame)
 
 		if frame > 0 and values[frame-1] >= 0: # Left line
 			c = self.graph.coords(lines[frame - 1])
@@ -316,6 +320,7 @@ class PitchGUI:
 			self.rewind_btn.config(state=DISABLED)
 
 	def listen_voice(self):
+		self.record_btn.config(state=DISABLED)
 		self.audio.play_voice(self.pitch, self.vol, self.dirty)
 		self.root.after(0, self.play_callback)
 		self.dirty = False
