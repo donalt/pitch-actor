@@ -5,10 +5,13 @@ import wave
 import time
 from struct import unpack, pack
 
+MIN_FREQ = 30
+MAX_FREQ = 350
+
 class Audio():
 	RECORD_RATE = 11025
 	
-	TEMP_WAV = 'tmp.wav'
+	TEMP_WAV = 'tmp.wav' # Where to save recordings.
 
 	FRAME_LEN = 1024
 	HOP_LEN = 512
@@ -45,7 +48,7 @@ class Audio():
 		# Get the RMS (volume).
 		vol = rosa.feature.rmse(y=self.y, frame_length=self.FRAME_LEN, hop_length=self.HOP_LEN).flatten()
 		# Get pitch.
-		pitch = self.calc_pitch()
+		pitch = self.calc_pitch(MIN_FREQ, MAX_FREQ)
 		if vol.size != pitch.size:
 			vol = vol[:-1]
 
@@ -145,7 +148,7 @@ class Audio():
 		self.start_ratio = 0
 		self.stop()
 
-	def calc_pitch(self, fmin=50, fmax=800):
+	def calc_pitch(self, fmin, fmax):
 		windows = int(np.ceil(self.samples / self.HOP_LEN))
 		pitches, mag = rosa.piptrack(self.y, self.sr, None, self.FRAME_LEN, self.HOP_LEN, fmin, fmax)
 

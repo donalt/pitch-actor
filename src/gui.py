@@ -88,6 +88,7 @@ class PitchGUI:
 		self.graph.bind('<B1-Motion>', self.mouse1_on_graph)
 		self.graph.bind('<Button-3>', self.mouse3_on_graph)
 		self.graph.bind('<B3-Motion>', self.mouse3_on_graph)
+		self.graph.bind('<Motion>', self.mouse_on_graph)
 
 		# Vertical line used with audio playback.
 		self.cursor_line = self.graph.create_line(0,0,0,0, fill='red')
@@ -153,11 +154,11 @@ class PitchGUI:
 		self.dirty = True
 		window.mainloop()
 
-	def draw_curve(self, x, y, tag, color='#000'):
+	def draw_curve(self, x, y, tag, scale_fun, color='#000'):
 		if x.size != y.size:
 			raise ValueError('x and y must have same dimensions')
-		# Scale to fit and invert.
-		y = GRAPH_H - y * (GRAPH_H / self.max_y)
+		# Scale to inverted y coords.
+		y = scale_fun(y)
 		y_lim = GRAPH_H
 		curve = np.empty(y.size - 1, dtype=int)
 		for i in range(curve.size):
@@ -192,13 +193,13 @@ class PitchGUI:
 			values = self.pitch
 			if values[frame] < 0:
 				return
-			self.pitch[frame] = (GRAPH_H - y) * (self.max_y/GRAPH_H)
+			self.pitch[frame] = self.scale_y2pitch(y)
 		else:
 			lines = self.v_lines
 			values = self.vol
 			# Transform y, cap it, and transform it back.
-			vol_y = min(((GRAPH_H - y) * (self.max_y/GRAPH_H)) / 150, 0.999)
-			y = GRAPH_H - (vol_y*150) * (GRAPH_H / self.max_y)
+			vol_y = min(self.scale_y2vol(y), 0.999)
+			y = self.scale_vol2y(vol_y)
 			self.vol[frame] = vol_y
 			self.gate_volume(frame)
 
@@ -226,12 +227,12 @@ class PitchGUI:
 		self.max_y = np.max(pitch) + PITCH_Y_PAD
 		self.graph.delete('p')
 		x = np.linspace(0, GRAPH_W, pitch.size)
-		self.p_lines = self.draw_curve(x, pitch, 'p', color=P_COLOR)
+		self.p_lines = self.draw_curve(x, pitch, 'p', self.scale_pitch2y, color=P_COLOR)
 
 	def draw_volume(self, vol):
 		self.graph.delete('v')
 		x = np.linspace(0, GRAPH_W, vol.size)
-		self.v_lines = self.draw_curve(x, vol * 150, 'v')
+		self.v_lines = self.draw_curve(x, vol, 'v', self.scale_vol2y)
 
 	def draw_axes(self):
 		self.xaxis.delete('v')
@@ -261,8 +262,18 @@ class PitchGUI:
 
 	def set_threshold(self, value):
 		self.threshold = value
-		value = GRAPH_H - (value * 150) * (GRAPH_H / self.max_y)
+		value = self.scale_vol2y(value)
 		self.graph.coords(self.threshold_line, [0, value, GRAPH_W, value])
+
+	def scale_pitch2y(self, pitch):
+		return GRAPH_H - pitch * (GRAPH_H / self.max_y)
+	def scale_y2pitch(self, y):
+		return (GRAPH_H - y) * (self.max_y/GRAPH_H)
+
+	def scale_vol2y(self, vol):
+		return GRAPH_H - vol * (GRAPH_H/2)
+	def scale_y2vol(self, y):
+		return (GRAPH_H - y) * (2/GRAPH_H)
 
 	########### Menu Options ############
 	def open_wav_file(self):
@@ -349,6 +360,9 @@ class PitchGUI:
 			self.audio.stop()
 			self.audio.set_start(event.x / GRAPH_W)
 			self.move_cursor(self.cursor_start_line, event.x)
+
+	def mouse_on_graph(self, event):
+		print(f'freq:{self.scale_y2pitch(event.y)}, vol:{self.scale_y2vol(event.y)}')
 
 	def mouse1_on_graph(self, event):
 		self.alter_point(event.x, event.y, 'p')
