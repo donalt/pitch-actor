@@ -6,6 +6,7 @@ from PIL import Image, ImageTk
 import numpy as np
 import audio # Play / record audio
 import synth # Synthesise voicelines
+import dialog # Load and handle dialogue files.
 import shutil # Copy files
 
 ### Constants
@@ -136,25 +137,19 @@ class PitchGUI:
 		#### dubbing dialogue text ##################################################
 		lines = Frame(dubbing)
 		lines.pack()
-
 		# prev line, current line, next line
-		self.p_line = Text(lines, width=80, height=3, wrap=WORD, cursor='arrow')
-		self.c_line = Text(lines, width=80, height=3, wrap=WORD, cursor='arrow')
-		self.n_line = Text(lines, width=80, height=3, wrap=WORD, cursor='arrow')
-		self.p_line.pack()
-		self.c_line.pack()
-		self.n_line.pack()
-
-		# PLACEHOLDER TEXT
-		self.p_line.insert(END, 'Ehm, not quite.')
-		self.c_line.insert(END, 'Are you sure? You see, I have visited every nook and hook of this deserted ball of granite you like to call "Mars", and I haven\'t seen any of that.')
-		self.n_line.insert(END, 'You know what, you talk waaay too much man, go chill! Or one day, you\'ll say too much to a very unfortunate individual.')
-		self.p_line.config(state=DISABLED)
-		self.c_line.config(state=DISABLED)
-		self.n_line.config(state=DISABLED)
+		p_line = Text(lines, width=80, height=3, wrap=WORD, cursor='arrow', state=DISABLED, fg='#252525', bg='#ddd')
+		c_line = Text(lines, width=80, height=3, wrap=WORD, cursor='arrow', state=DISABLED)
+		n_line = Text(lines, width=80, height=3, wrap=WORD, cursor='arrow', state=DISABLED, fg='#252525', bg='#ddd')
+		p_line.pack()
+		c_line.pack()
+		n_line.pack()
+		self.dialog = dialog.Dialog((p_line, c_line, n_line))
+		
 
 		self.audio.load_wav('../sound/test.wav') # TESTING
 		self.synth.load_voice('../sound/sine220.wav', 220)
+		self.load_dialog('../dialog/test.txt')
 		self.dirty = True
 		window.mainloop()
 
@@ -282,6 +277,9 @@ class PitchGUI:
 				path += '.wav'
 			shutil.copy2(self.audio.TEMP_WAV, path)
 
+	def load_dialog(self, path):
+		self.dialog.load(path)
+
 	###########    Buttons    ############
 	def rewind_button(self):
 		self.audio.rewind()
@@ -324,10 +322,10 @@ class PitchGUI:
 		self.dirty = False
 
 	def prev_line(self):
-		pass
+		self.dialog.prev()
 
 	def next_line(self):
-		pass
+		self.dialog.next()
 
 	def prev_charline(self):
 		pass
