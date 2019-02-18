@@ -85,7 +85,7 @@ class Audio():
 		self._close_stream()
 		# Start resynthesising voice if pitch/vol has changed.
 		if dirty:
-			self.synth.prepare(pitch * 3, vol, self.pitch_sr)
+			self.synth.prepare(pitch, vol, self.pitch_sr)
 
 		# Start playing the synthesised voice.
 		self.play_i = 0

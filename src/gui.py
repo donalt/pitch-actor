@@ -149,7 +149,8 @@ class PitchGUI:
 		
 
 		self.audio.load_wav('../sound/test.wav') # TESTING
-		self.synth.load_voice('../sound/sine220.wav', 220)
+		self.synth.load_voice('../sound/sine220.wav', 110)
+		#self.synth.load_voice('../sound/iii94.wav', 94)
 		self.load_dialog('../dialog/test.txt')
 		self.dirty = True
 		window.mainloop()
