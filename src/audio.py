@@ -164,7 +164,9 @@ class Audio():
 		return self.wf is not None
 
 	def playing(self):
-		return self.stream.is_active()
+		if self.stream is not None:
+			return self.stream.is_active()
+		return False
 
 	def recording(self):
 		return self._recording

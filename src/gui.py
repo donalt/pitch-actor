@@ -118,17 +118,17 @@ class PitchGUI:
 		dubbtns = Frame(dubbing)
 		dubbtns.pack()
 
-		self.undubbed = BooleanVar()
-		self.undubbed.set(False)
+		self.dubbed = BooleanVar()
+		self.dubbed.set(False)
 
-		undubbed_btn = Checkbutton(dubbtns, text='Undubbed', variable=self.undubbed, indicatoron=0)
+		self.dubbed_btn = Checkbutton(dubbtns, text='Undubbed', variable=self.dubbed, indicatoron=0)
 		prev_ln_btn = Button(dubbtns, text='Prev', command=self.prev_line)
 		next_ln_btn = Button(dubbtns, text='Next', command=self.next_line)
 		prev_char_btn = Button(dubbtns, text='PrevChar', command=self.prev_charline)
 		next_char_btn = Button(dubbtns, text='NextChar', command=self.next_charline)
 		self.line_entry = Entry(dubbtns, width=3, validate='key', vcmd=(dubbtns.register(self.valid_line_entry),'%d','%s','%S'))
 
-		undubbed_btn.pack(side=LEFT, ipady=10, ipadx=20)
+		self.dubbed_btn.pack(side=LEFT, ipady=10, ipadx=20)
 		prev_ln_btn.pack(side=LEFT, ipady=10, ipadx=20)
 		next_ln_btn.pack(side=LEFT, ipady=10, ipadx=20)
 		prev_char_btn.pack(side=LEFT, ipady=10, ipadx=20)
@@ -147,6 +147,20 @@ class PitchGUI:
 		n_line.pack()
 		self.dialog = dialog.Dialog((p_line, c_line, n_line))
 		
+
+		### keyboard controls ######################################################
+		# Player
+		self.root.bind('<space>', self.space_key)
+		self.root.bind('m', self.listen_voice)
+		self.root.bind('r', self.record_button)
+		self.root.bind(',', self.rewind_button)
+
+		# Dubbing
+		self.root.bind('d', self.toggle_dub_btn)
+		self.root.bind('<Left>', self.prev_line)
+		self.root.bind('<Right>', self.next_line)
+		self.root.bind('<Up>', self.prev_charline)
+		self.root.bind('<Down>', self.next_charline)
 
 		self.audio.load_wav('../sound/test.wav') # TESTING
 		self.synth.load_voice('../sound/sine220.wav', 110)
@@ -293,10 +307,11 @@ class PitchGUI:
 		self.dialog.load(path)
 
 	###########    Buttons    ############
-	def rewind_button(self):
-		self.audio.rewind()
-		self.move_cursor(self.cursor_line, -2)
-		self.move_cursor(self.cursor_start_line, -2)
+	def rewind_button(self, e=None):
+		if not self.audio.recording():
+			self.audio.rewind()
+			self.move_cursor(self.cursor_line, -2)
+			self.move_cursor(self.cursor_start_line, -2)
 
 	def play_button(self):
 		self.record_btn.config(state=DISABLED)
@@ -310,7 +325,7 @@ class PitchGUI:
 			self.audio.stop()
 			self.move_cursor(self.cursor_line, -2)
 
-	def record_button(self):
+	def record_button(self, e=None):
 		if self.audio.recording():
 			self.audio.stop_recording()
 			self.record_btn.config(image=self.record_btn.img)
@@ -325,24 +340,25 @@ class PitchGUI:
 			self.play_btn.config(state=DISABLED)
 			self.rewind_btn.config(state=DISABLED)
 
-	def listen_voice(self):
-		self.record_btn.config(state=DISABLED)
-		vol = np.copy(self.vol)
-		vol[vol < self.threshold] = 0
-		self.audio.play_voice(self.pitch, vol, self.dirty)
-		self.root.after(0, self.play_callback)
-		self.dirty = False
+	def listen_voice(self, e=None):
+		if not self.audio.recording():
+			self.record_btn.config(state=DISABLED)
+			vol = np.copy(self.vol)
+			vol[vol < self.threshold] = 0
+			self.audio.play_voice(self.pitch, vol, self.dirty)
+			self.root.after(0, self.play_callback)
+			self.dirty = False
 
-	def prev_line(self):
+	def prev_line(self, e=None):
 		self.dialog.prev()
 
-	def next_line(self):
+	def next_line(self, e=None):
 		self.dialog.next()
 
-	def prev_charline(self):
+	def prev_charline(self, e=None):
 		pass
 
-	def next_charline(self):
+	def next_charline(self, e=None):
 		pass
 
 	def valid_line_entry(self, inserting, oldstr, new):
@@ -353,6 +369,16 @@ class PitchGUI:
 		if (len(oldstr) + len(new)) > 3 or (oldstr=='' and new[0]=='0'):
 			return False
 		return True
+
+	########### Keyboard Controls #############
+	def toggle_dub_btn(self, e=None):
+		self.dubbed_btn.toggle()
+
+	def space_key(self, e=None):
+		if self.audio.playing():
+			self.stop_button()
+		else:
+			self.play_button()
 
 	########### Mouse Events ############
 	# Move cursor and stop audio if playing.
