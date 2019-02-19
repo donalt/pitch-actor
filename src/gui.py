@@ -118,9 +118,9 @@ class PitchGUI:
 		dubbtns = Frame(dubbing)
 		dubbtns.pack()
 
+		dialog_info = Label(dubbtns)
 		self.dubbed = BooleanVar()
 		self.dubbed.set(False)
-
 		self.dubbed_btn = Checkbutton(dubbtns, text='Undubbed', variable=self.dubbed, indicatoron=0)
 		prev_ln_btn = Button(dubbtns, text='Prev', command=self.prev_line)
 		next_ln_btn = Button(dubbtns, text='Next', command=self.next_line)
@@ -128,6 +128,7 @@ class PitchGUI:
 		next_char_btn = Button(dubbtns, text='NextChar', command=self.next_charline)
 		self.line_entry = Entry(dubbtns, width=3, validate='key', vcmd=(dubbtns.register(self.valid_line_entry),'%d','%s','%S'))
 
+		dialog_info.pack(side=LEFT, ipady=10, ipadx=20)
 		self.dubbed_btn.pack(side=LEFT, ipady=10, ipadx=20)
 		prev_ln_btn.pack(side=LEFT, ipady=10, ipadx=20)
 		next_ln_btn.pack(side=LEFT, ipady=10, ipadx=20)
@@ -145,7 +146,7 @@ class PitchGUI:
 		p_line.pack()
 		c_line.pack()
 		n_line.pack()
-		self.dialog = dialog.Dialog((p_line, c_line, n_line))
+		self.dialog = dialog.Dialog((p_line, c_line, n_line), dialog_info)
 		
 
 		### keyboard controls ######################################################
