@@ -162,10 +162,12 @@ class PitchGUI:
 		self.root.bind('<Right>', self.next_line)
 		self.root.bind('<Up>', self.prev_charline)
 		self.root.bind('<Down>', self.next_charline)
+		self.root.bind('l', self.line_entry_focus)
+		self.line_entry.bind('<Return>', self.enter_line)
 
 		self.audio.load_wav('../sound/test.wav') # TESTING
-		self.synth.load_voice('../sound/sine220.wav', 110)
-		#self.synth.load_voice('../sound/iii94.wav', 94)
+		#self.synth.load_voice('../sound/sine220.wav', 110)
+		self.synth.load_voice('../sound/iii94.wav', 94)
 		self.load_dialog('../dialog/test.txt')
 		self.dirty = True
 		window.mainloop()
@@ -363,7 +365,6 @@ class PitchGUI:
 		pass
 
 	def valid_line_entry(self, inserting, oldstr, new):
-		return True # TODO: PLACEHOLDER FOR MANIPULATING PITCH SHIFT
 		if inserting != '1': # Don't validate deletion.
 			return True
 		# len <= 3 and no starting with 0.
@@ -381,6 +382,15 @@ class PitchGUI:
 		else:
 			self.play_button()
 
+	def line_entry_focus(self, e=None):
+		self.line_entry.focus_set()
+
+	def enter_line(self, e=None):
+		if self.line_entry.get() != '':
+			self.dialog.goto(int(self.line_entry.get()) - 1)
+			self.line_entry.delete(0, END)
+			self.root.focus_set()
+
 	########### Mouse Events ############
 	# Move cursor and stop audio if playing.
 	def click_playback_cursor(self, event):
@@ -390,7 +400,8 @@ class PitchGUI:
 			self.move_cursor(self.cursor_start_line, event.x)
 
 	def mouse_on_graph(self, event):
-		print(f'freq:{self.scale_y2pitch(event.y)}, vol:{self.scale_y2vol(event.y)}')
+		#print(f'freq:{self.scale_y2pitch(event.y)}, vol:{self.scale_y2vol(event.y)}')
+		pass
 
 	def mouse1_on_graph(self, event):
 		self.alter_point(event.x, event.y, 'p')

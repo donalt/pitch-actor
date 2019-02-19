@@ -3,19 +3,26 @@ class Dialog:
 	def __init__(self, textboxes, info):
 		self.text = textboxes
 		self.info = info
+		self._reset()
+
+	def _reset(self):
 		self.lines = []
+		self.characters = []
+		self.unique = 0 # Num unique characters.
 		self.cur_line = 0
-		self.characters = set()
 
 	def load(self, path):
-		self.lines = []
-		self.cur_line = 0
-		self.characters = set()
+		self._reset()
+		chars = set()
 		with open(path, 'r') as f:
 			for l in f:
 				char_line = l.split(' ', 1)
-				self.characters.add(int(char_line[0]))
+				c_id = int(char_line[0])
+				self.characters.append(c_id)
 				self.lines.append(char_line[1])
+				if c_id not in chars:
+					chars.add(c_id)
+					self.unique += 1
 
 		self._update_text()
 		self._update_info()
@@ -41,5 +48,4 @@ class Dialog:
 
 	def _update_info(self):
 		l = len(self.lines)
-		c = self.characters.__len__()
-		self.info.config(text=f'Lines: 0/{l}\nChars: 0/{c}')
+		self.info.config(text=f'Lines: 0/{l}\nChars: 0/{self.unique}')
