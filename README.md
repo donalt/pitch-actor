@@ -1,2 +1,2 @@
-# pitch-actor
-An application for acting out pitch and volume instead of full-on voice acting.
+# Pitch Actor
+Pitch Actor lets you record your voice and extract the pitch and volume. This data can then be applied to a base sound font. The resulting output will retain the intonation and "acting" of the original recording, but without any actual speech. This is useful as an inbetween of normal voice acting and simple bleeps and bloops, for use in video games. using Pitch Actor, one person can also record the "voice" of every character, since the pitch can be increased/lowered and the sound font changed to anything.
